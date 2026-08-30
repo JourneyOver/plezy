@@ -2464,11 +2464,24 @@
       "anilist": "AniList",
       "simkl": "Simkl",
       "seerr": "Seerr",
+      "theIntroDb": "",
       "mdblist": "MDBList"
     },
     "simklReconnect": {
       "title": "Genopret forbindelse til Simkl",
       "subtitle": "Simkl udfaser den loginmetode, som denne forbindelse bruger. Når du genopretter forbindelsen, åbnes simkl.com, hvor du godkender Plezy — Plezy ser aldrig din adgangskode. Din visningshistorik forbliver på Simkl."
+    },
+    "theIntroDb": {
+      "title": "",
+      "subtitle": "",
+      "apiKey": "",
+      "apiKeyHint": "",
+      "publicAccess": "",
+      "testConnection": "",
+      "connectionSuccess": "",
+      "connectionFailed": "",
+      "infoText": "",
+      "getKeyInfo": ""
     },
     "deviceCode": {
       "title": "Aktiver Plezy på ${service}",

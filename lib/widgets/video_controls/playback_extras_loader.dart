@@ -7,6 +7,7 @@ import '../../services/cached_playback_metadata_service.dart';
 import '../../services/settings_service.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/global_key_utils.dart';
+import '../../services/the_intro_db_service.dart';
 
 class VideoControlsPlaybackExtrasLoader {
   final MediaItem metadata;
@@ -16,42 +17,59 @@ class VideoControlsPlaybackExtrasLoader {
   const VideoControlsPlaybackExtrasLoader({required this.metadata, required this.database, required this.client});
 
   Future<PlaybackExtras?> load({bool forceRefresh = false}) async {
-    if (client == null) {
-      return _loadFromCacheOnly(cacheServerId: await _resolveCacheServerId());
-    }
+    PlaybackExtras? extras;
 
-    try {
-      appLogger.d('_loadPlaybackExtras: starting for ${metadata.id} (forceRefresh=$forceRefresh)');
-      final settings = await SettingsService.getInstance();
-      final extras = await client!.fetchPlaybackExtras(
-        metadata.id,
-        introPattern: settings.read(SettingsService.introPattern),
-        creditsPattern: settings.read(SettingsService.creditsPattern),
-        forceChapterFallback: settings.read(SettingsService.forceSkipMarkerFallback),
-        forceRefresh: forceRefresh,
-      );
-      appLogger.d('_loadPlaybackExtras: got ${_describe(extras)}');
-      return extras;
-    } catch (e, stack) {
-      appLogger.d('_loadPlaybackExtras: network path failed, trying cache fallback');
+    if (client == null) {
+      extras = await _loadFromCacheOnly(cacheServerId: await _resolveCacheServerId());
+    } else {
       try {
+        appLogger.d('_loadPlaybackExtras: starting for ${metadata.id} (forceRefresh=$forceRefresh)');
         final settings = await SettingsService.getInstance();
-        final extras = await client!.fetchPlaybackExtrasFromCacheOnly(
+        extras = await client!.fetchPlaybackExtras(
           metadata.id,
           introPattern: settings.read(SettingsService.introPattern),
           creditsPattern: settings.read(SettingsService.creditsPattern),
           forceChapterFallback: settings.read(SettingsService.forceSkipMarkerFallback),
+          forceRefresh: forceRefresh,
         );
-        if (extras != null) {
-          appLogger.d('_loadPlaybackExtras: loaded ${_describe(extras)} from cache');
-          return extras;
+        appLogger.d('_loadPlaybackExtras: got ${_describe(extras)}');
+      } catch (e, stack) {
+        appLogger.d('_loadPlaybackExtras: network path failed, trying cache fallback');
+        extras = await _loadFromCacheOnly(cacheServerId: client!.serverId);
+        if (extras == null) {
+          appLogger.e('_loadPlaybackExtras failed', error: e, stackTrace: stack);
         }
-      } catch (cacheError) {
-        appLogger.d('_loadPlaybackExtras: cache fallback failed', error: cacheError);
       }
-      appLogger.e('_loadPlaybackExtras failed', error: e, stackTrace: stack);
-      return null;
     }
+
+    // When the server and chapter titles leave intro or credits undetected,
+    // query TheIntroDB and merge its markers in, deduped against the existing
+    // markers within a 5 s start-offset window.
+    final fileHasIntro = extras?.markers.any((m) => m.type == 'intro') ?? false;
+    final fileHasCredits = extras?.markers.any((m) => m.isCredits) ?? false;
+    if (!fileHasIntro || !fileHasCredits) {
+      try {
+        final baseExtras = extras ?? PlaybackExtras(chapters: const [], markers: const []);
+        final introDbMarkers = await TheIntroDbService.instance.fetchMarkers(metadata, client: client);
+        if (introDbMarkers.isNotEmpty) {
+          final mergedMarkers = List<MediaMarker>.from(baseExtras.markers);
+          for (final m in introDbMarkers) {
+            final exists = mergedMarkers.any(
+              (existing) => existing.type == m.type && (existing.startTimeOffset - m.startTimeOffset).abs() < 5000,
+            );
+            if (!exists) {
+              mergedMarkers.add(m);
+            }
+          }
+          extras = PlaybackExtras(chapters: baseExtras.chapters, markers: mergedMarkers);
+          appLogger.i('TheIntroDB: Merged ${introDbMarkers.length} markers for ${metadata.displayTitle}');
+        }
+      } catch (e) {
+        appLogger.w('Failed to merge TheIntroDB markers', error: e);
+      }
+    }
+
+    return extras;
   }
 
   Future<PlaybackExtras?> _loadFromCacheOnly({required String? cacheServerId}) async {

@@ -2464,11 +2464,24 @@
       "anilist": "AniList",
       "simkl": "Simkl",
       "seerr": "Seerr",
+      "theIntroDb": "",
       "mdblist": "MDBList"
     },
     "simklReconnect": {
       "title": "Simkl opnieuw verbinden",
       "subtitle": "Simkl stopt met de aanmeldmethode die deze verbinding gebruikt. Bij opnieuw verbinden wordt simkl.com geopend om Plezy goed te keuren — Plezy ziet je wachtwoord nooit. Je kijkgeschiedenis blijft op Simkl."
+    },
+    "theIntroDb": {
+      "title": "",
+      "subtitle": "",
+      "apiKey": "",
+      "apiKeyHint": "",
+      "publicAccess": "",
+      "testConnection": "",
+      "connectionSuccess": "",
+      "connectionFailed": "",
+      "infoText": "",
+      "getKeyInfo": ""
     },
     "deviceCode": {
       "title": "Plezy activeren op ${service}",

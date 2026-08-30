@@ -2464,11 +2464,24 @@
       "anilist": "AniList",
       "simkl": "Simkl",
       "seerr": "Seerr",
+      "theIntroDb": "",
       "mdblist": "MDBList"
     },
     "simklReconnect": {
       "title": "Simkl-ni qayta ulash",
       "subtitle": "Simkl bu ulanishda ishlatiladigan kirish usulini toʻxtatmoqda. Qayta ulanganda Plezy-ni tasdiqlash uchun simkl.com ochiladi — Plezy parolingizni hech qachon koʻrmaydi. Tomosha tarixingiz Simkl-da saqlanib qoladi."
+    },
+    "theIntroDb": {
+      "title": "",
+      "subtitle": "",
+      "apiKey": "",
+      "apiKeyHint": "",
+      "publicAccess": "",
+      "testConnection": "",
+      "connectionSuccess": "",
+      "connectionFailed": "",
+      "infoText": "",
+      "getKeyInfo": ""
     },
     "deviceCode": {
       "title": "Plezy-ni ${service} xizmatida faollashtiring",

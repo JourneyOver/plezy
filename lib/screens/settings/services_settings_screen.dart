@@ -15,6 +15,7 @@ import '../../widgets/setting_tile.dart';
 import '../../widgets/settings_section.dart';
 import 'seerr_connect_screen.dart';
 import 'seerr_settings_screen.dart';
+import 'the_intro_db_settings_screen.dart';
 import 'tracker_service_info.dart';
 
 /// Unified hub for all connected services: the watch-progress trackers
@@ -39,7 +40,13 @@ class ServicesSettingsScreen extends StatelessWidget {
                 ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
-            SettingsGroup(children: [for (final info in TrackerServiceInfo.all) _TrackerHubRow(info), _seerr()]),
+            SettingsGroup(
+              children: [
+                for (final info in TrackerServiceInfo.all) _TrackerHubRow(info),
+                _seerr(),
+                _theIntroDb(context),
+              ],
+            ),
             if (DiscordRPCService.isAvailable)
               SettingsGroup(
                 title: t.services.integrations,
@@ -74,6 +81,19 @@ class ServicesSettingsScreen extends StatelessWidget {
       },
     ),
   );
+
+  Widget _theIntroDb(BuildContext context) {
+    final apiKey = SettingsService.instance.read(SettingsService.theIntroDbApiKey);
+    final hasKey = apiKey != null && apiKey.trim().isNotEmpty;
+    return _ServiceHubRow(
+      leading: const CatalogSourceLogo(CatalogSourceId.theIntroDb, size: 24),
+      title: t.services.names.theIntroDb,
+      username: hasKey ? t.services.theIntroDb.apiKey : t.services.theIntroDb.publicAccess,
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const TheIntroDbSettingsScreen()));
+      },
+    );
+  }
 }
 
 /// Hub row for a watch tracker. Owns the `watch` on that service's account
