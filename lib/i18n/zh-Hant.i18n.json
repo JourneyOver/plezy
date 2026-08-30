@@ -2453,11 +2453,24 @@
       "anilist": "AniList",
       "simkl": "Simkl",
       "seerr": "Seerr",
+      "theIntroDb": "",
       "mdblist": "MDBList"
     },
     "simklReconnect": {
       "title": "重新連線 Simkl",
       "subtitle": "Simkl 即將停用此連線所使用的登入方式。重新連線會開啟 simkl.com 以核准 Plezy — Plezy 絕不會看到您的密碼。您的觀看紀錄仍會保留在 Simkl 上。"
+    },
+    "theIntroDb": {
+      "title": "",
+      "subtitle": "",
+      "apiKey": "",
+      "apiKeyHint": "",
+      "publicAccess": "",
+      "testConnection": "",
+      "connectionSuccess": "",
+      "connectionFailed": "",
+      "infoText": "",
+      "getKeyInfo": ""
     },
     "deviceCode": {
       "title": "在 ${service} 啟用 Plezy",
