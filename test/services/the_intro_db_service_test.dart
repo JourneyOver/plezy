@@ -141,4 +141,50 @@ void main() {
     expect(markers.map((m) => m.type), ['intro', 'recap', 'credits', 'preview']);
     expect(markers.last.endTimeOffset, 3500000);
   });
+
+  group('episode ordering to v4 mapping', () {
+    String? mapping(String? ordering) => TheIntroDbService.introDbMappingForEpisodeOrdering(ordering);
+
+    test('Plex showOrdering values', () {
+      expect(mapping('tvdbAbsolute'), 'absolute');
+      expect(mapping('tvdbDvd'), 'dvd');
+      expect(mapping('tvdbAiring'), isNull);
+      expect(mapping('tmdbAiring'), isNull);
+      expect(mapping(''), isNull);
+      expect(mapping(null), isNull);
+    });
+
+    test('Jellyfin and Emby DisplayOrder values', () {
+      expect(mapping('absolute'), 'absolute');
+      expect(mapping('dvd'), 'dvd');
+      expect(mapping('originalAirDate'), isNull);
+      expect(mapping('aired'), isNull);
+      expect(mapping('tv'), isNull);
+      // Valid Jellyfin orders with no TVDB equivalent stay in the default order.
+      expect(mapping('digital'), isNull);
+      expect(mapping('storyArc'), isNull);
+    });
+
+    test('the v4 alias spellings resolve to their canonical order', () {
+      expect(mapping('altdvd'), 'dvd');
+      expect(mapping('dvdorder'), 'dvd');
+      expect(mapping('abso'), 'absolute');
+      expect(mapping('absoluteorder'), 'absolute');
+      expect(mapping('alttwo'), 'alternate');
+      expect(mapping('streaming'), 'alternate');
+      expect(mapping('production'), 'regional');
+      expect(mapping('regionalorder'), 'regional');
+    });
+
+    test('casing, dashes, underscores and padding do not matter', () {
+      expect(mapping(' TVDB-Absolute '), 'absolute');
+      expect(mapping('Aired_Order'), isNull);
+      expect(mapping('ALTERNATE'), 'alternate');
+    });
+
+    test('an unknown value is the default order, not a guess', () {
+      expect(mapping('sideways'), isNull);
+      expect(mapping('   '), isNull);
+    });
+  });
 }

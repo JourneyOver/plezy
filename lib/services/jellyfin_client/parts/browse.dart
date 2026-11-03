@@ -863,6 +863,25 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     return fetchItem(id);
   }
 
+  /// The series' `DisplayOrder` (`''` aired, `originalAirDate`, `dvd`,
+  /// `absolute`, `alternate`, `regional`, …), or null when the server does not
+  /// report one.
+  ///
+  /// Jellyfin keeps the ordering on the Series item only; an episode's own DTO
+  /// never carries it. [fetchItemFreshCacheFirst] makes the series row playback
+  /// just fetched serve this without another round trip, and its
+  /// `_detailFields` request keeps the attribute in the mapped `raw` DTO.
+  Future<String?> fetchEpisodeOrdering(String seriesId, {String? librarySectionId}) async {
+    try {
+      final series = await fetchItemFreshCacheFirst(seriesId);
+      final ordering = series?.raw?['DisplayOrder'];
+      if (ordering is String && ordering.trim().isNotEmpty) return ordering.trim();
+    } catch (e) {
+      appLogger.d('JellyfinClient.fetchEpisodeOrdering failed: $e');
+    }
+    return null;
+  }
+
   Future<MediaItem?> _fetchItemOnce(String id) async {
     final endpoint = '/Users/${_segment(connection.userId)}/Items/${_segment(id)}';
     // Contract:

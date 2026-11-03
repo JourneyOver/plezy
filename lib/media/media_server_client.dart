@@ -1017,6 +1017,27 @@ abstract interface class SeasonEpisodePagingClient {
   });
 }
 
+/// Optional capability for clients whose server can report the episode
+/// ordering a series is filed under.
+///
+/// The value is the server's own vocabulary and is returned verbatim, because
+/// the two backends do not share one: Plex reports `showOrdering`
+/// (`tmdbAiring`, `tvdbAiring`, `tvdbDvd`, `tvdbAbsolute`, empty for the
+/// library default) while Jellyfin/Emby report the series' `DisplayOrder`
+/// (`''` for aired, `originalAirDate`, `dvd`, `absolute`, `alternate`, …).
+/// Translating it into another service's vocabulary is the caller's job.
+///
+/// `null` means "this server does not know", which callers must treat as the
+/// default order rather than guessing one.
+abstract interface class EpisodeOrderingClient {
+  /// Episode ordering of the series [seriesId]. [librarySectionId] lets a
+  /// backend fall back to the library-wide default when the series itself
+  /// carries no explicit ordering (Plex keeps that on the section prefs).
+  ///
+  /// Never throws: a lookup failure is "unknown", not a playback error.
+  Future<String?> fetchEpisodeOrdering(String seriesId, {String? librarySectionId});
+}
+
 /// Optional capability for clients whose server can answer "may the signed-in
 /// user delete *this* item?" per item.
 ///

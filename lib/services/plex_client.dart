@@ -77,6 +77,7 @@ import '../i18n/strings.g.dart';
 import '../mpv/mpv.dart';
 import 'api_cache.dart';
 import 'plex_api_cache.dart';
+import 'trackers/future_coalescer.dart';
 import 'plex_constants.dart';
 import 'plex_lyrics_parser.dart';
 import 'plex_mappers.dart';
@@ -402,7 +403,7 @@ class PlexClient
         _PlexCollectionMethods,
         _PlexPlayQueueMethods,
         _PlexMetadataEditMethods
-    implements MediaServerClient, ScopedMediaServerClient, GracefullyCloseable {
+    implements MediaServerClient, ScopedMediaServerClient, EpisodeOrderingClient, GracefullyCloseable {
   @override
   PlexConfig config;
 
@@ -455,6 +456,15 @@ class PlexClient
   /// the Plex-specific cache substrate.
   @override
   ApiCache get cache => _cache;
+
+  /// Per-series episode ordering, memoized for the session: it is a show-level
+  /// setting that does not change inside one run, and playback asks for it on
+  /// every episode.
+  final KeyedFutureCache<String, String?> _episodeOrderingCache = KeyedFutureCache();
+
+  /// Library-wide `showOrdering` default, memoized the same way. Consulted only
+  /// when the show itself carries no explicit ordering.
+  final KeyedFutureCache<String, String?> _libraryOrderingCache = KeyedFutureCache();
 
   /// Snapshot the profile identity used by a cache-first request before its
   /// cache lookup can yield. [PlexConfig] is immutable, and [headers] returns a
@@ -4787,6 +4797,68 @@ class PlexClient
     final guids = first['Guid'];
     final modern = guids is List ? ExternalIds.fromGuids(guids) : const ExternalIds();
     return modern.fillFrom(ExternalIds.fromLegacyPlexGuid(first['guid']));
+  }
+
+  /// The show's `showOrdering` (`tmdbAiring`, `tvdbAiring`, `tvdbDvd`,
+  /// `tvdbAbsolute`), or the library's default when the show set none.
+  ///
+  /// Plex reports the explicit value as an ordinary attribute of the show's
+  /// metadata — the same row playback already touches — and leaves it absent on
+  /// shows that follow the library. Only then is the section prefs request
+  /// spent, once per library. Memoized per series for the session.
+  @override
+  Future<String?> fetchEpisodeOrdering(String seriesId, {String? librarySectionId}) =>
+      _episodeOrderingCache.run(seriesId, () => _fetchEpisodeOrdering(seriesId, librarySectionId));
+
+  Future<String?> _fetchEpisodeOrdering(String seriesId, String? librarySectionId) async {
+    final cached = await _cachedShowOrdering(seriesId);
+    if (cached != null) return cached;
+
+    try {
+      final response = await _getWithFailover('/library/metadata/$seriesId');
+      final data = response.data;
+      final ordering = _showOrderingFrom(data is Map<String, dynamic> ? _getFirstMetadataJsonFromData(data) : null);
+      if (ordering != null) return ordering;
+    } on MediaServerHttpException catch (e) {
+      // A show the server will not hand over is "unknown ordering", never a
+      // playback failure.
+      appLogger.d('PlexClient.fetchEpisodeOrdering: metadata fetch answered ${e.statusCode}');
+      if (e.statusCode != 404) return null;
+    } catch (e) {
+      appLogger.d('PlexClient.fetchEpisodeOrdering: metadata fetch failed: $e');
+      return null;
+    }
+
+    if (librarySectionId == null || librarySectionId.isEmpty) return null;
+    return _libraryOrderingCache.run(librarySectionId, () async {
+      try {
+        final prefs = await getLibrarySectionPrefs(librarySectionId);
+        final value = prefs['showOrdering'];
+        return value is String && value.trim().isNotEmpty ? value.trim() : null;
+      } catch (e) {
+        appLogger.d('PlexClient.fetchEpisodeOrdering: section prefs failed: $e');
+        return null;
+      }
+    });
+  }
+
+  Future<String?> _cachedShowOrdering(String seriesId) async {
+    try {
+      final cached = await _cache.getIfFresh(
+        profileScopeId.cacheServerId,
+        '/library/metadata/$seriesId',
+        maxAge: playbackMetadataCacheFreshness,
+      );
+      return _showOrderingFrom(PlexCacheParser.extractFirstMetadata(cached));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String? _showOrderingFrom(Map<String, dynamic>? metadata) {
+    final value = metadata?['showOrdering'];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
   }
 
   /// Map id-verified candidates to items, dropping any sequel the server does

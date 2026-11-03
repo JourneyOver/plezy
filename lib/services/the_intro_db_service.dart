@@ -73,7 +73,12 @@ class TheIntroDbService {
     final key = (apiKey ?? SettingsService.instance.read(SettingsService.theIntroDbApiKey))?.trim();
     final effectiveDuration = durationMs ?? metadata.durationMs;
     try {
-      final ids = await _resolveExternalIds(metadata, client: client);
+      // The ordering lookup is a second server read; overlap it with the id
+      // resolution this needs anyway.
+      final (ids, mapping) = await (
+        _resolveExternalIds(metadata, client: client),
+        _resolveIntroDbMapping(metadata, client),
+      ).wait;
       final identities = _identityParams(ids);
       if (identities.isEmpty) {
         appLogger.d('TheIntroDbService: No external IDs available for ${metadata.displayTitle}');
@@ -96,10 +101,18 @@ class TheIntroDbService {
       if (effectiveDuration != null && effectiveDuration > 0) {
         params['duration_ms'] = effectiveDuration.toString();
       }
+      if (mapping != null) params['mapping'] = mapping;
 
       http.Response? response;
       for (final identity in identities) {
         response = await _fetch({...identity, ...params}, key);
+        if (response.statusCode == 400 && params.containsKey('mapping')) {
+          // "mapping is not available for this media" refuses the order, not the
+          // request, so the default-order lookup is still worth making.
+          appLogger.d('TheIntroDbService: order "$mapping" refused, looking up in the default order');
+          params.remove('mapping');
+          response = await _fetch({...identity, ...params}, key);
+        }
         if (response.statusCode != 404) break;
         appLogger.d('TheIntroDbService: no timestamps addressed by $identity, trying another id');
       }
@@ -158,6 +171,56 @@ class TheIntroDbService {
       }
     }
     return markers;
+  }
+
+  /// What the series' episode ordering means for a v4 `mapping`, or null when
+  /// the lookup should stay in TVDB's stored (default) order.
+  ///
+  /// Aired order *is* the stored default, so it maps to null: a mapping the
+  /// media does not carry is a 400 and a spent request, and "no mapping" gives
+  /// the same answer. Only a library that was deliberately switched to another
+  /// order sends one.
+  static String? introDbMappingForEpisodeOrdering(String? ordering) {
+    final trimmed = ordering?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    // The servers disagree on spelling and casing ("originalAirDate",
+    // "tvdbAbsolute", "altdvd", "Aired-Order"), and v4 canonicalises the same
+    // way, so compare on the bare word.
+    final value = trimmed.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+    return switch (value) {
+      'dvd' || 'dvdorder' || 'altdvd' || 'tvdbdvd' => 'dvd',
+      'absolute' || 'absoluteorder' || 'abso' || 'tvdbabsolute' => 'absolute',
+      'alternate' || 'alternateorder' || 'alttwo' || 'streaming' || 'streamingorder' || 'tvdbalternate' => 'alternate',
+      'regional' || 'regionalorder' || 'production' || 'productionorder' => 'regional',
+      // aired / official / originalAirDate / tmdbAiring / tvdbAiring / tv, and
+      // the orders with no TVDB equivalent (digital, storyArc).
+      _ => null,
+    };
+  }
+
+  /// The `mapping` for [metadata]: the series' ordering as its server reports
+  /// it. Backends that cannot report one, and lookups that fail, are "default
+  /// order" rather than an error.
+  Future<String?> _resolveIntroDbMapping(MediaItem metadata, MediaServerClient? client) async {
+    if (metadata.kind != MediaKind.episode || client is! EpisodeOrderingClient) return null;
+    final seriesId =
+        metadata.grandparentId ?? (metadata.raw?['SeriesId'] is String ? metadata.raw!['SeriesId'] as String : null);
+    if (seriesId == null || seriesId.isEmpty) return null;
+
+    try {
+      final ordering = await (client as EpisodeOrderingClient).fetchEpisodeOrdering(
+        seriesId,
+        librarySectionId: metadata.libraryId,
+      );
+      final mapping = introDbMappingForEpisodeOrdering(ordering);
+      if (mapping != null) {
+        appLogger.d('TheIntroDbService: series order "$ordering" looked up as mapping "$mapping"');
+      }
+      return mapping;
+    } catch (e) {
+      appLogger.d('TheIntroDbService: could not read the series episode order: $e');
+      return null;
+    }
   }
 
   static int _openEnd(String type, int startMs, int? durationMs) {
