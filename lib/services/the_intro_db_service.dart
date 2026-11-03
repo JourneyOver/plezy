@@ -8,27 +8,55 @@ import '../services/settings_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/external_ids.dart';
 
-/// Service integration for The Intro DB API (theintrodb.org)
+/// Service integration for The Intro DB API v4 (theintrodb.org)
 /// Fetches intro, recap, credits, and preview timestamps for movies and TV episodes.
+///
+/// v4 is keyed by TVDB and addresses a media by `tvdb_id` → `tmdb_id` →
+/// `imdb_id`, so requests prefer the TVDB id whenever the server knows it.
 class TheIntroDbService {
   static final TheIntroDbService instance = TheIntroDbService._();
   TheIntroDbService._();
 
-  static const String _baseUrl = 'https://api.theintrodb.org/v3/media';
+  static const String _baseUrl = 'https://api.theintrodb.org/v4/media';
+
+  /// Current-user account endpoint. `GET /media` accepts (and ignores) an
+  /// invalid key, so only `/me` can tell a working key from a dead one.
+  static const String _accountUrl = 'https://api.theintrodb.org/v4/me';
+
+  static const Duration _timeout = Duration(seconds: 4);
+
+  /// Segment properties `GET /media` may carry. Each is an array, and one
+  /// segment type may hold several ranges.
+  static const List<String> _segmentTypes = ['intro', 'recap', 'credits', 'preview'];
+
+  /// Segments that sit at the end of the file, whose `end_ms: null` means "runs
+  /// to the end of the media".
+  static const Set<String> _trailingTypes = {'credits', 'preview'};
+
+  /// End used for a segment the API left open ended when the file duration is
+  /// unknown. Roughly one credits roll; harmless if it lands short.
+  static const int _openEndFallbackMs = 90000;
 
   /// Tests connection to The Intro DB using specified [apiKey] or configured settings.
+  ///
+  /// A configured key is checked against the account endpoint, which is the
+  /// only place an invalid key is refused. Without a key the check is a public
+  /// media request, which is what unauthenticated playback will use.
   Future<bool> testConnection([String? apiKey]) async {
+    final key = (apiKey ?? SettingsService.instance.read(SettingsService.theIntroDbApiKey))?.trim();
     try {
-      final keyToUse = apiKey ?? SettingsService.instance.read(SettingsService.theIntroDbApiKey);
-      final uri = Uri.parse('$_baseUrl?tmdb_id=1396&season=1&episode=1');
-      final headers = <String, String>{
-        'Accept': 'application/json',
-        if (keyToUse != null && keyToUse.trim().isNotEmpty) ...{
-          'Authorization': 'Bearer ${keyToUse.trim()}',
-          'x-api-key': keyToUse.trim(),
-        },
-      };
-      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 4));
+      if (key != null && key.isNotEmpty) {
+        final me = await http.get(Uri.parse(_accountUrl), headers: _headers(key)).timeout(_timeout);
+        if (me.statusCode == 200) return true;
+        if (me.statusCode == 401 || me.statusCode == 403) {
+          appLogger.d('TheIntroDbService: API key rejected (${me.statusCode})');
+          return false;
+        }
+        appLogger.d('TheIntroDbService: /me answered ${me.statusCode}, probing /media instead');
+      }
+      final response = await http
+          .get(Uri.parse('$_baseUrl?tvdb_id=81189&season=1&episode=1'), headers: _headers(null))
+          .timeout(_timeout);
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -42,181 +70,180 @@ class TheIntroDbService {
     int? durationMs,
     String? apiKey,
   }) async {
-    final keyToUse = apiKey ?? SettingsService.instance.read(SettingsService.theIntroDbApiKey);
+    final key = (apiKey ?? SettingsService.instance.read(SettingsService.theIntroDbApiKey))?.trim();
+    final effectiveDuration = durationMs ?? metadata.durationMs;
     try {
-      ExternalIds? ids;
-
-      if (metadata.kind == MediaKind.episode) {
-        // 1. Check if raw has SeriesProviderIds (Emby / Jellyfin)
-        if (metadata.raw != null && metadata.raw!['SeriesProviderIds'] is Map) {
-          final pMap = (metadata.raw!['SeriesProviderIds'] as Map).cast<String, Object?>();
-          ids = ExternalIds.fromJellyfinProviderIds(pMap);
-        }
-
-        // 2. Fetch show external IDs via client using grandparentId / parentId / SeriesId
-        if ((ids == null || !ids.hasAny) && client != null) {
-          final showId =
-              metadata.grandparentId ??
-              metadata.parentId ??
-              (metadata.raw != null ? metadata.raw!['SeriesId'] as String? : null);
-          if (showId != null && showId.isNotEmpty) {
-            try {
-              ids = await client.fetchExternalIds(showId);
-            } catch (_) {}
-          }
-        }
-      } else {
-        // For Movies & Shows
-        if (metadata.guid != null) {
-          ids = ExternalIds.fromGuids([metadata.guid!]);
-        }
-        if ((ids == null || !ids.hasAny) && metadata.raw != null) {
-          final rawMap = metadata.raw!;
-          if (rawMap['ProviderIds'] is Map) {
-            final pMap = (rawMap['ProviderIds'] as Map).cast<String, Object?>();
-            ids = ExternalIds.fromJellyfinProviderIds(pMap);
-          }
-        }
-        if ((ids == null || !ids.hasAny) && client != null) {
-          try {
-            ids = await client.fetchExternalIds(metadata.id);
-          } catch (_) {}
-        }
-      }
-
-      // 3. Fallback to TMDB Search API if still no IDs
-      if (ids == null || !ids.hasAny) {
-        try {
-          final tmdbId = await _findTmdbId(metadata);
-          if (tmdbId != null) {
-            ids = ExternalIds(tmdb: int.parse(tmdbId));
-            appLogger.i('TheIntroDbService: Found TMDB ID $tmdbId via search for ${metadata.displayTitle}');
-          }
-        } catch (e) {
-          appLogger.d('TheIntroDbService: Failed to search TMDB for ${metadata.displayTitle}: $e');
-        }
-      }
-
-      final queryParams = <String, String>{};
-
-      if (ids != null) {
-        if (ids.tmdb != null) {
-          queryParams['tmdb_id'] = ids.tmdb.toString();
-        } else if (ids.imdb != null && ids.imdb!.isNotEmpty) {
-          queryParams['imdb_id'] = ids.imdb!;
-        } else if (ids.tvdb != null) {
-          queryParams['tvdb_id'] = ids.tvdb.toString();
-        }
-      }
-
-      // Season & Episode number for TV shows
-      if (metadata.kind == MediaKind.episode) {
-        if (metadata.parentIndex != null) {
-          queryParams['season'] = metadata.parentIndex.toString();
-        }
-        if (metadata.index != null) {
-          queryParams['episode'] = metadata.index.toString();
-        }
-      }
-
-      final effectiveDuration = durationMs ?? metadata.durationMs;
-      if (effectiveDuration != null && effectiveDuration > 0) {
-        queryParams['duration_ms'] = effectiveDuration.toString();
-      }
-
-      // Require at least one external ID
-      if (!queryParams.containsKey('tmdb_id') &&
-          !queryParams.containsKey('imdb_id') &&
-          !queryParams.containsKey('tvdb_id')) {
+      final ids = await _resolveExternalIds(metadata, client: client);
+      final identities = _identityParams(ids);
+      if (identities.isEmpty) {
         appLogger.d('TheIntroDbService: No external IDs available for ${metadata.displayTitle}');
         return const [];
       }
 
-      Future<http.Response> doFetch(Map<String, String> params) {
-        final uri = Uri.parse(_baseUrl).replace(queryParameters: params);
-        appLogger.d('TheIntroDbService: Fetching $uri');
-        final headers = <String, String>{
-          'Accept': 'application/json',
-          if (keyToUse != null && keyToUse.trim().isNotEmpty) ...{
-            'Authorization': 'Bearer ${keyToUse.trim()}',
-            'x-api-key': keyToUse.trim(),
-          },
-        };
-        return http.get(uri, headers: headers).timeout(const Duration(seconds: 4));
-      }
-
-      var response = await doFetch(queryParams);
-
-      // Fallback 1: If 404 and duration_ms was present, retry without duration_ms
-      if (response.statusCode == 404 && queryParams.containsKey('duration_ms')) {
-        final noDurationParams = Map<String, String>.from(queryParams)..remove('duration_ms');
-        appLogger.d('TheIntroDbService: Retrying without duration_ms...');
-        response = await doFetch(noDurationParams);
-      }
-
-      // Fallback 2: If 404, try alternative IDs (imdb_id / tvdb_id)
-      if (response.statusCode == 404 && ids != null) {
-        if (queryParams.containsKey('tmdb_id')) {
-          if (ids.imdb != null && ids.imdb!.isNotEmpty) {
-            final imdbParams = Map<String, String>.from(queryParams)
-              ..remove('tmdb_id')
-              ..remove('duration_ms')
-              ..['imdb_id'] = ids.imdb!;
-            appLogger.d('TheIntroDbService: Retrying with imdb_id ${ids.imdb}...');
-            response = await doFetch(imdbParams);
-          } else if (ids.tvdb != null) {
-            final tvdbParams = Map<String, String>.from(queryParams)
-              ..remove('tmdb_id')
-              ..remove('duration_ms')
-              ..['tvdb_id'] = ids.tvdb.toString();
-            appLogger.d('TheIntroDbService: Retrying with tvdb_id ${ids.tvdb}...');
-            response = await doFetch(tvdbParams);
-          }
+      final params = <String, String>{};
+      // `season` and `episode` are only meaningful together: v4 rejects one
+      // without the other.
+      if (metadata.kind == MediaKind.episode) {
+        final season = metadata.parentIndex;
+        final episode = metadata.index;
+        if (season != null && episode != null) {
+          params['season'] = season.toString();
+          params['episode'] = episode.toString();
         }
       }
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final markers = <MediaMarker>[];
-        var idCounter = 9000;
-
-        void parseCategory(String key, String type) {
-          final list = data[key] as List<dynamic>?;
-          if (list == null) return;
-
-          for (final entry in list) {
-            if (entry is Map<String, dynamic>) {
-              final startMs = entry['start_ms'] as int?;
-              final endMs = entry['end_ms'] as int?;
-
-              if (startMs != null || endMs != null) {
-                markers.add(
-                  MediaMarker(
-                    id: idCounter++,
-                    type: type,
-                    startTimeOffset: startMs ?? 0,
-                    endTimeOffset: endMs ?? ((startMs ?? 0) + 90000),
-                  ),
-                );
-              }
-            }
-          }
-        }
-
-        parseCategory('intro', 'intro');
-        parseCategory('recap', 'recap');
-        parseCategory('credits', 'credits');
-        parseCategory('preview', 'preview');
-
-        appLogger.i('TheIntroDbService: Fetched ${markers.length} markers for ${metadata.displayTitle}');
-        return markers;
-      } else {
-        appLogger.w('TheIntroDbService HTTP ${response.statusCode}: ${response.body}');
+      // v4 picks the release version closest to this duration (theatrical,
+      // extended, …) within 5 minutes.
+      if (effectiveDuration != null && effectiveDuration > 0) {
+        params['duration_ms'] = effectiveDuration.toString();
       }
+
+      http.Response? response;
+      for (final identity in identities) {
+        response = await _fetch({...identity, ...params}, key);
+        if (response.statusCode != 404) break;
+        appLogger.d('TheIntroDbService: no timestamps addressed by $identity, trying another id');
+      }
+      if (response == null) return const [];
+
+      if (response.statusCode != 200) {
+        final body = response.body.length > 300 ? response.body.substring(0, 300) : response.body;
+        appLogger.w('TheIntroDbService HTTP ${response.statusCode}: $body');
+        return const [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return const [];
+
+      final markers = parseMarkers(decoded, durationMs: effectiveDuration);
+      appLogger.i('TheIntroDbService: Fetched ${markers.length} markers for ${metadata.displayTitle}');
+      return markers;
     } catch (e) {
       appLogger.w('TheIntroDbService: Failed to fetch markers: $e');
     }
     return const [];
+  }
+
+  /// Maps a `GET /media` body to markers.
+  ///
+  /// v4 writes `0` where a segment does not exist (a credits or preview start,
+  /// any type's end) and `null` where the value means "beginning of the media"
+  /// (intro/recap start) or "end of the media" (credits/preview end). The two
+  /// are not interchangeable: a `0` read as a start would make a credits marker
+  /// cover the whole file.
+  static List<MediaMarker> parseMarkers(Map<String, dynamic> body, {int? durationMs, int firstMarkerId = 9000}) {
+    final markers = <MediaMarker>[];
+    var nextId = firstMarkerId;
+
+    for (final type in _segmentTypes) {
+      final segments = body[type];
+      if (segments is! List) continue;
+
+      for (final segment in segments) {
+        if (segment is! Map) continue;
+
+        final rawStart = segment['start_ms'];
+        final rawEnd = segment['end_ms'];
+        final startMs = rawStart is num ? rawStart.toInt() : null;
+        final endMs = rawEnd is num ? rawEnd.toInt() : null;
+
+        final start = (startMs == null || startMs <= 0) ? 0 : startMs;
+
+        if (start == 0 && _trailingTypes.contains(type)) continue;
+        if (endMs != null && endMs <= 0) continue;
+
+        final end = endMs ?? _openEnd(type, start, durationMs);
+        if (end <= start) continue;
+
+        markers.add(MediaMarker(id: nextId++, type: type, startTimeOffset: start, endTimeOffset: end));
+      }
+    }
+    return markers;
+  }
+
+  static int _openEnd(String type, int startMs, int? durationMs) {
+    // Skip Credits hands the finish to the completion flow only when the marker
+    // ends with the file, so trailing segments need the real duration.
+    if (_trailingTypes.contains(type) && durationMs != null && durationMs > startMs) return durationMs;
+    return startMs + _openEndFallbackMs;
+  }
+
+  static Map<String, String> _headers(String? key) => {
+    'Accept': 'application/json',
+    if (key != null && key.isNotEmpty) 'Authorization': 'Bearer $key',
+  };
+
+  Future<http.Response> _fetch(Map<String, String> params, String? key) {
+    final uri = Uri.parse(_baseUrl).replace(queryParameters: params);
+    appLogger.d('TheIntroDbService: Fetching $uri');
+    return http.get(uri, headers: _headers(key)).timeout(_timeout);
+  }
+
+  /// Identity query params in v4's resolution order: TVDB first, because it is
+  /// the stored identity and the other two are resolved server-side.
+  static List<Map<String, String>> _identityParams(ExternalIds? ids) {
+    if (ids == null) return const [];
+    return [
+      if (ids.tvdb != null) {'tvdb_id': ids.tvdb.toString()},
+      if (ids.tmdb != null) {'tmdb_id': ids.tmdb.toString()},
+      if (ids.imdb != null && ids.imdb!.isNotEmpty) {'imdb_id': ids.imdb!},
+    ];
+  }
+
+  Future<ExternalIds?> _resolveExternalIds(MediaItem metadata, {MediaServerClient? client}) async {
+    ExternalIds? ids;
+
+    if (metadata.kind == MediaKind.episode) {
+      // 1. Check if raw has SeriesProviderIds (Emby / Jellyfin)
+      if (metadata.raw != null && metadata.raw!['SeriesProviderIds'] is Map) {
+        final pMap = (metadata.raw!['SeriesProviderIds'] as Map).cast<String, Object?>();
+        ids = ExternalIds.fromJellyfinProviderIds(pMap);
+      }
+
+      // 2. Fetch show external IDs via client using grandparentId / parentId / SeriesId
+      if ((ids == null || !ids.hasAny) && client != null) {
+        final showId =
+            metadata.grandparentId ??
+            metadata.parentId ??
+            (metadata.raw != null ? metadata.raw!['SeriesId'] as String? : null);
+        if (showId != null && showId.isNotEmpty) {
+          try {
+            ids = await client.fetchExternalIds(showId);
+          } catch (_) {}
+        }
+      }
+    } else {
+      // For Movies & Shows
+      if (metadata.guid != null) {
+        ids = ExternalIds.fromGuids([metadata.guid!]);
+      }
+      if ((ids == null || !ids.hasAny) && metadata.raw != null) {
+        final rawMap = metadata.raw!;
+        if (rawMap['ProviderIds'] is Map) {
+          final pMap = (rawMap['ProviderIds'] as Map).cast<String, Object?>();
+          ids = ExternalIds.fromJellyfinProviderIds(pMap);
+        }
+      }
+      if ((ids == null || !ids.hasAny) && client != null) {
+        try {
+          ids = await client.fetchExternalIds(metadata.id);
+        } catch (_) {}
+      }
+    }
+
+    // 3. Fallback to TMDB Search API if still no IDs
+    if (ids == null || !ids.hasAny) {
+      try {
+        final tmdbId = await _findTmdbId(metadata);
+        if (tmdbId != null) {
+          ids = ExternalIds(tmdb: int.parse(tmdbId));
+          appLogger.i('TheIntroDbService: Found TMDB ID $tmdbId via search for ${metadata.displayTitle}');
+        }
+      } catch (e) {
+        appLogger.d('TheIntroDbService: Failed to search TMDB for ${metadata.displayTitle}: $e');
+      }
+    }
+
+    return ids;
   }
 
   Future<String?> _findTmdbId(MediaItem metadata) async {
@@ -242,7 +269,7 @@ class TheIntroDbService {
         'https://api.themoviedb.org/3/search/$type?api_key=3aec63790d50f3b9fc2efb4c15a8cf99&query=${Uri.encodeQueryComponent(queryTitle)}$yearParam',
       );
 
-      final res = await http.get(url).timeout(const Duration(seconds: 4));
+      final res = await http.get(url).timeout(_timeout);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final results = data['results'] as List<dynamic>? ?? [];
