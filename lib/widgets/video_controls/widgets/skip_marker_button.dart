@@ -13,6 +13,11 @@ class SkipMarkerButton extends StatelessWidget {
   final MediaMarker marker;
   final Duration playerDuration;
   final bool hasNextEpisode;
+
+  /// Skip Credits at the end of the file returns to the previous screen
+  /// instead of starting the next episode (auto-play off, prompt off), so the
+  /// pill must read as a skip rather than promise the next episode (#2537).
+  final bool creditsSkipLeavesPlayer;
   final bool isAutoSkipActive;
   final bool shouldShowAutoSkip;
   final int autoSkipDelay;
@@ -26,6 +31,7 @@ class SkipMarkerButton extends StatelessWidget {
     required this.marker,
     required this.playerDuration,
     required this.hasNextEpisode,
+    this.creditsSkipLeavesPlayer = false,
     required this.isAutoSkipActive,
     required this.shouldShowAutoSkip,
     required this.autoSkipDelay,
@@ -40,7 +46,10 @@ class SkipMarkerButton extends StatelessWidget {
     final isCredits = marker.isCredits;
     final creditsAtEnd =
         isCredits && playerDuration > Duration.zero && (playerDuration - marker.endTime).inMilliseconds <= 1000;
-    final showNextEpisode = creditsAtEnd && hasNextEpisode;
+    // A credits pill that advances starts the next episode outright, so it
+    // names that outcome. One that leaves the player keeps saying what it
+    // skips.
+    final showNextEpisode = creditsAtEnd && hasNextEpisode && !creditsSkipLeavesPlayer;
     String baseButtonText;
     if (showNextEpisode) {
       baseButtonText = t.videoControls.nextEpisode;

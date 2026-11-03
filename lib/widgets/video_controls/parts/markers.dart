@@ -102,6 +102,17 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
     }
   }
 
+  /// Whether Skip Credits on a marker that ends with the file returns the
+  /// viewer to the previous screen instead of starting the next episode
+  /// (#2537).
+  ///
+  /// Shared by the action and the button's label: a pill that leaves the
+  /// player must not promise the next episode.
+  bool get _creditsSkipLeavesPlayer => completionReturnsToPreviousScreen(
+    autoPlayEnabled: _settings.read(SettingsService.autoPlayNextEpisode),
+    playNextPromptEnabled: _settings.read(SettingsService.showPlayNextPrompt),
+  );
+
   Future<void> _skipMarker({bool skipAutoPlayCountdown = false}) async {
     if (!widget.canControl) return;
     if (_currentMarker == null || !_hasRenderedFirstFrame) return;
@@ -117,11 +128,7 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
       // end-of-episode prompt is hidden and auto-play is off, the viewer asked
       // to be returned where they came from, so hand the finish to the
       // completion flow instead of advancing here (#2537).
-      final returnsToPreviousScreen = completionReturnsToPreviousScreen(
-        autoPlayEnabled: _settings.read(SettingsService.autoPlayNextEpisode),
-        playNextPromptEnabled: _settings.read(SettingsService.showPlayNextPrompt),
-      );
-      if (!skipAutoPlayCountdown && !returnsToPreviousScreen && widget.onNext != null) {
+      if (!skipAutoPlayCountdown && !_creditsSkipLeavesPlayer && widget.onNext != null) {
         _abandoningBurst(widget.onNext)!.call();
       } else {
         // Seeking to EOF is unreliable due to position stream throttling,
@@ -279,6 +286,7 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
               marker: _currentMarker!,
               playerDuration: widget.player.state.duration,
               hasNextEpisode: widget.onNext != null,
+              creditsSkipLeavesPlayer: _creditsSkipLeavesPlayer,
               isAutoSkipActive: isAutoSkipActive,
               shouldShowAutoSkip: _shouldShowAutoSkip(),
               autoSkipDelay: _autoSkipDelay,
