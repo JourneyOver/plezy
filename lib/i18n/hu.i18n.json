@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Automatikus lejátszás és átugrás",
     "autoPlayNextEpisode": "Következő epizód automatikus lejátszása",
     "autoPlayNextEpisodeDescription": "A következő epizód automatikus elindítása, amikor az aktuális véget ér",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Véletlenszerű lejátszás az elejétől",
     "shuffleStartsFromBeginningDescription": "Minden epizód az elejétől indul véletlenszerű lejátszáskor a folytatás helyett",
     "playNextCountdown": "Visszaszámlálás a következő epizódig",

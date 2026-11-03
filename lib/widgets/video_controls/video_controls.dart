@@ -43,6 +43,7 @@ import '../../media/media_source_info.dart';
 import '../../models/transcode_quality_preset.dart';
 import '../../media/media_version.dart';
 import '../../screens/video_player_screen.dart';
+import '../../screens/video_player/completion_latch.dart';
 import '../../focus/key_event_utils.dart';
 import '../../services/keyboard_shortcuts_service.dart';
 import '../../services/live_seek_accumulator.dart';

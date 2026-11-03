@@ -804,13 +804,19 @@ class SettingsService extends BaseSharedPreferencesService {
   static const resumeMusicOnLaunch = BoolPref('resume_music_on_launch', defaultValue: true);
   static const autoPlayNextEpisode = BoolPref('auto_play_next_episode', defaultValue: true);
 
+  /// Show the end-of-episode Play Next prompt (#2537). Off means no prompt is
+  /// ever raised: auto-play advances straight into the next item, and with
+  /// [autoPlayNextEpisode] off the finished item leaves the player for the
+  /// screen it came from instead of waiting for an answer.
+  static const showPlayNextPrompt = BoolPref('show_play_next_prompt', defaultValue: true);
+
   /// Shuffled video queues start every episode at 0:00 instead of resuming
   /// from the server-side view offset (#2303). Off preserves resume behavior.
   static const shuffleStartsFromBeginning = BoolPref('shuffle_starts_from_beginning');
 
   /// Seconds the Play Next prompt counts down before auto-advancing (#1827).
   /// 0 skips the prompt entirely and starts the next episode immediately.
-  /// Only consulted while [autoPlayNextEpisode] is on.
+  /// Only consulted while [autoPlayNextEpisode] and [showPlayNextPrompt] are on.
   static final playNextCountdown = IntPref('play_next_countdown', defaultValue: 5, transform: (v) => v.clamp(0, 30));
 
   /// Touch gestures on the player surface (#1810). Each defaults on; the
@@ -1526,6 +1532,7 @@ class SettingsService extends BaseSharedPreferencesService {
     musicVolume,
     resumeMusicOnLaunch,
     autoPlayNextEpisode,
+    showPlayNextPrompt,
     playNextCountdown,
     shuffleStartsFromBeginning,
     gestureBrightnessSwipe,

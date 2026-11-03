@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "자동 재생 및 건너뛰기",
     "autoPlayNextEpisode": "다음 에피소드 자동 재생",
     "autoPlayNextEpisodeDescription": "에피소드가 끝나면 다음 에피소드를 자동으로 재생",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "무작위 재생 시 처음부터 시작",
     "shuffleStartsFromBeginningDescription": "무작위 재생 시 이어보기 대신 각 에피소드를 처음부터 재생합니다",
     "playNextCountdown": "다음 재생 카운트다운",
