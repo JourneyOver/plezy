@@ -1,0 +1,174 @@
+# Fork-only workflow: merges the newest upstream (edde746/plezy) main into this
+# fork's main inside the runner, builds Windows (x64), and publishes the result
+# as the rolling "nightly" pre-release of this fork.
+#
+# The merge is never pushed back: GITHUB_TOKEN may not write commits that touch
+# .github/workflows, and upstream edits those regularly. Use GitHub's
+# "Sync fork" button (or `git pull upstream main`) to update the branch itself.
+name: Fork nightly
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if nothing changed since the last nightly
+        default: false
+        type: boolean
+
+concurrency:
+  group: fork-nightly
+  cancel-in-progress: true
+
+env:
+  UPSTREAM_REPO: https://github.com/edde746/plezy.git
+  RELEASE_TAG: nightly
+
+jobs:
+  prepare:
+    if: github.repository != 'edde746/plezy'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      fork_sha: ${{ steps.merge.outputs.fork_sha }}
+      upstream_sha: ${{ steps.merge.outputs.upstream_sha }}
+      flutter_version: ${{ steps.merge.outputs.flutter_version }}
+      version: ${{ steps.merge.outputs.version }}
+      skip: ${{ steps.changed.outputs.skip }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge upstream main
+        id: merge
+        shell: bash
+        run: |
+          fork_sha=$(git rev-parse HEAD)
+          git fetch --no-tags "$UPSTREAM_REPO" main
+          upstream_sha=$(git rev-parse FETCH_HEAD)
+          if ! git -c user.name=fork-ci -c user.email=fork-ci@localhost merge --no-edit FETCH_HEAD; then
+            echo "::error::Upstream main ($upstream_sha) conflicts with this fork. Merge it by hand: git pull upstream main"
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          # Read the SDK pin from upstream's own workflow so a Flutter bump upstream needs no edit here.
+          flutter_version=$(sed -n 's/^ *FLUTTER_VERSION: *"\([^"]*\)".*/\1/p' .github/workflows/build.yml | head -1)
+          version=$(python3 scripts/pubspec_version.py pubspec.yaml)
+          {
+            echo "fork_sha=$fork_sha"
+            echo "upstream_sha=$upstream_sha"
+            echo "flutter_version=$flutter_version"
+            echo "version=${version%%+*}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Fork $fork_sha + upstream $upstream_sha, Flutter $flutter_version, version $version"
+
+      - name: Skip when the last nightly already has these commits
+        id: changed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAMP: "upstream=${{ steps.merge.outputs.upstream_sha }} fork=${{ steps.merge.outputs.fork_sha }}"
+        run: |
+          skip=false
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.force }}" == "false" && "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            body=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body 2>/dev/null || true)
+            if [[ "$body" == *"$STAMP"* ]]; then skip=true; fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          echo "skip=$skip"
+
+  build-windows:
+    needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.fork_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge upstream main
+        shell: bash
+        run: |
+          git fetch --no-tags "$UPSTREAM_REPO" main
+          git -c user.name=fork-ci -c user.email=fork-ci@localhost merge --no-edit ${{ needs.prepare.outputs.upstream_sha }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: ${{ needs.prepare.outputs.flutter_version }}
+          cache: true
+
+      - name: Install dependencies
+        shell: pwsh
+        run: flutter pub get --enforce-lockfile --no-example
+
+      - name: Install patched Flutter engine (DComp)
+        shell: pwsh
+        run: |
+          flutter precache --windows
+          .\windows\tool\install-patched-engine.ps1
+
+      # ENABLE_UPDATE_CHECK stays off: the built-in updater would replace this
+      # build with the official release, which has no fork changes.
+      - name: Build Windows x64
+        shell: pwsh
+        run: flutter build windows --release --dart-define=GIT_COMMIT=${{ needs.prepare.outputs.fork_sha }} --dart-define=SUPPORTER_MODE=msstore
+
+      - name: Build installer and portable
+        shell: pwsh
+        run: .\windows\build-installer.ps1 -X64BuildDir "build/windows/x64/runner/Release" -Version "${{ needs.prepare.outputs.version }}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: windows
+          path: |
+            plezy-windows-installer.exe
+            plezy-windows-x64-portable.7z
+
+  # Publishes the build when it succeeded. A failed build gets a different
+  # stamp, so the next scheduled run rebuilds instead of skipping.
+  release:
+    needs: [prepare, build-windows]
+    if: >-
+      !cancelled() && needs.prepare.outputs.skip != 'true' &&
+      needs.build-windows.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish nightly pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORK_SHA: ${{ needs.prepare.outputs.fork_sha }}
+          UPSTREAM_SHA: ${{ needs.prepare.outputs.upstream_sha }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          stamp="upstream=$UPSTREAM_SHA fork=$FORK_SHA"
+          notes=$(printf 'Plezy %s with this fork'"'"'s changes, built %s.\n\n%s\n' \
+            "$VERSION" "$(date -u +'%Y-%m-%d %H:%M UTC')" "$stamp")
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "Nightly $VERSION" --notes "$notes" --prerelease
+          else
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --target "$FORK_SHA" --title "Nightly $VERSION" --notes "$notes" --prerelease
+          fi
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/*
