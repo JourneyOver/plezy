@@ -283,6 +283,7 @@ class JellyfinClient
         MediaServerClient,
         SeasonEpisodePagingClient,
         MediaDeletionPermissionClient,
+        EpisodeOrderingClient,
         ScopedMediaServerClient,
         GracefullyCloseable {
   JellyfinClient._({required this._connection, required this._http, FavoriteChannelsRepository? favoritesRepository})
