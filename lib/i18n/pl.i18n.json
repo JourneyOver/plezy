@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Auto-odtwarzanie i pomijanie",
     "autoPlayNextEpisode": "Automatycznie odtwarzaj następny odcinek",
     "autoPlayNextEpisodeDescription": "Automatycznie uruchamiaj następny odcinek, gdy bieżący się skończy",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Odtwarzanie losowe od początku",
     "shuffleStartsFromBeginningDescription": "Rozpoczynaj każdy odcinek od początku przy odtwarzaniu losowym zamiast wznawiać",
     "playNextCountdown": "Odliczanie do następnego odcinka",

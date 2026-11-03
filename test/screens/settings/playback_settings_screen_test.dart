@@ -73,6 +73,30 @@ void main() {
     expect(find.descendant(of: tile, matching: find.textContaining('Per library')), findsOneWidget);
   });
 
+  testWidgets('hides the Play Next prompt from the auto-play group', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1400);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(MaterialApp(theme: monoTheme(MonoPalette.dark), home: const PlaybackSettingsScreen()));
+    await tester.pumpAndSettle();
+
+    final title = find.text('Show Play Next Prompt');
+    await tester.scrollUntilVisible(title, 500, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(title);
+    await tester.pumpAndSettle();
+
+    final settings = SettingsService.instance;
+    expect(settings.read(SettingsService.showPlayNextPrompt), isTrue);
+
+    await tester.tap(title);
+    await tester.pumpAndSettle();
+
+    expect(settings.read(SettingsService.showPlayNextPrompt), isFalse);
+    expect(settings.prefs.getBool(SettingsService.showPlayNextPrompt.key), isFalse);
+  });
+
   testWidgets('changes the play next countdown and labels zero as immediate', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1000, 1400);

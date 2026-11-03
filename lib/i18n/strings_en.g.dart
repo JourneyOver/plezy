@@ -989,6 +989,12 @@ class Translations$settings$en {
 	/// en: 'Start the next episode automatically when one ends'
 	String get autoPlayNextEpisodeDescription => 'Start the next episode automatically when one ends';
 
+	/// en: 'Show Play Next Prompt'
+	String get showPlayNextPrompt => 'Show Play Next Prompt';
+
+	/// en: 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead'
+	String get showPlayNextPromptDescription => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead';
+
 	/// en: 'Shuffle Starts at Beginning'
 	String get shuffleStartsFromBeginning => 'Shuffle Starts at Beginning';
 
@@ -8441,6 +8447,8 @@ extension on Translations {
 			'settings.autoPlayAndSkip' => 'Auto-Play & Skip',
 			'settings.autoPlayNextEpisode' => 'Auto-Play Next Episode',
 			'settings.autoPlayNextEpisodeDescription' => 'Start the next episode automatically when one ends',
+			'settings.showPlayNextPrompt' => 'Show Play Next Prompt',
+			'settings.showPlayNextPromptDescription' => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead',
 			'settings.shuffleStartsFromBeginning' => 'Shuffle Starts at Beginning',
 			'settings.shuffleStartsFromBeginningDescription' => 'Start each episode at the beginning when shuffling instead of resuming',
 			'settings.playNextCountdown' => 'Play Next Countdown',
@@ -8626,10 +8634,10 @@ extension on Translations {
 			'themeEditor.slots.surface' => 'Surface',
 			'themeEditor.slots.outline' => 'Outline',
 			'themeEditor.slots.text' => 'Text',
-			'themeEditor.slots.textMuted' => 'Secondary text',
-			'themeEditor.slots.accent' => 'Accent',
 			_ => null,
 		} ?? switch (path) {
+			'themeEditor.slots.textMuted' => 'Secondary text',
+			'themeEditor.slots.accent' => 'Accent',
 			'themeEditor.opacity' => 'Opacity',
 			'themeEditor.hexHint' => '#RRGGBB or #AARRGGBB',
 			'themeEditor.fromOtherThemes' => 'From other themes',
@@ -9140,10 +9148,10 @@ extension on Translations {
 			'profiles.profileNameHint' => 'e.g. Guests, Kids, Family Room',
 			'profiles.pinProtectionOptional' => 'PIN protection (optional)',
 			'profiles.pinExplain' => '4-digit PIN required to switch profiles.',
-			'profiles.continueButton' => 'Continue',
-			'profiles.pinsDontMatch' => 'PINs don\'t match',
 			_ => null,
 		} ?? switch (path) {
+			'profiles.continueButton' => 'Continue',
+			'profiles.pinsDontMatch' => 'PINs don\'t match',
 			'profiles.tokenIdentityMismatch' => 'The Plex profile token resolved to an unexpected server',
 			'connections.sectionTitle' => 'Connections',
 			'connections.addConnection' => 'Add connection',
@@ -9654,10 +9662,10 @@ extension on Translations {
 			'liveTv.guideReloadRequested' => 'Guide refresh requested',
 			'liveTv.guideReloadFailed' => 'Couldn\'t refresh the guide',
 			'liveTv.rulesProcessRequested' => 'Rule re-evaluation requested',
-			'liveTv.rulesProcessFailed' => 'Couldn\'t re-evaluate recording rules',
-			'liveTv.recordShow' => 'Record show',
 			_ => null,
 		} ?? switch (path) {
+			'liveTv.rulesProcessFailed' => 'Couldn\'t re-evaluate recording rules',
+			'liveTv.recordShow' => 'Record show',
 			'liveTv.recordSettings.startEarly' => 'Start early (seconds)',
 			'liveTv.recordSettings.endLate' => 'End late (seconds)',
 			'liveTv.recordSettings.newOnly' => 'Only new episodes',
@@ -10168,10 +10176,10 @@ extension on Translations {
 			'performanceOverlay.cacheLimit' => 'Cache Limit',
 			'performanceOverlay.speed' => 'Speed',
 			'performanceOverlay.player' => 'Player',
-			'performanceOverlay.playMethod' => 'Play Method',
-			'performanceOverlay.memory' => 'Memory',
 			_ => null,
 		} ?? switch (path) {
+			'performanceOverlay.playMethod' => 'Play Method',
+			'performanceOverlay.memory' => 'Memory',
 			'performanceOverlay.uiFps' => 'UI FPS',
 			'performanceOverlay.fps' => 'FPS',
 			'performanceOverlay.decoderAndroidHw' => 'Android HW',

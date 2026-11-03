@@ -301,12 +301,22 @@ class PlaybackSettingsScreen extends StatelessWidget {
     title: t.settings.autoPlayAndSkip,
     children: [
       // Also togglable from the in-player settings sheet; both write the same
-      // pref, and this pref gates the play-next prompt.
+      // pref. Auto-play decides whether the next item starts by itself; the
+      // prompt toggle below decides whether the end of an episode asks at all.
       SettingSwitchTile(
         pref: SettingsService.autoPlayNextEpisode,
         icon: Symbols.skip_next_rounded,
         title: t.settings.autoPlayNextEpisode,
         subtitle: t.settings.autoPlayNextEpisodeDescription,
+      ),
+      // Without a prompt there is nobody to wait for: auto-play advances on
+      // its own, and with auto-play off the episode leaves the player when it
+      // finishes (#2537).
+      SettingSwitchTile(
+        pref: SettingsService.showPlayNextPrompt,
+        icon: Symbols.help_rounded,
+        title: t.settings.showPlayNextPrompt,
+        subtitle: t.settings.showPlayNextPromptDescription,
       ),
       SettingSwitchTile(
         pref: SettingsService.shuffleStartsFromBeginning,

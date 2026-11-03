@@ -116,13 +116,23 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
       final settings = await SettingsService.getInstance();
       if (!mounted) return;
       final autoPlayEnabled = !serverStopped && settings.read(SettingsService.autoPlayNextEpisode);
-      final countdownSeconds = settings.read(SettingsService.playNextCountdown);
-
+      final promptEnabled = settings.read(SettingsService.showPlayNextPrompt);
       // A zero countdown (#1827) behaves like the PiP path above: no prompt,
-      // straight into the next episode.
+      // straight into the next episode. A hidden prompt (#2537) leaves nothing
+      // to count down either, so auto-play advances the same way.
+      final countdownSeconds = promptEnabled ? settings.read(SettingsService.playNextCountdown) : 0;
+
       if (autoPlayEnabled && (skipAutoPlayCountdown || countdownSeconds == 0)) {
         _logVideoCompleted('action=presentNext autoplay');
         unawaited(_playNext());
+        return;
+      }
+
+      // No prompt and no auto-play: nothing is waiting for an answer, so the
+      // finished item leaves the player for the screen it came from (#2537).
+      if (completionReturnsToPreviousScreen(autoPlayEnabled: autoPlayEnabled, playNextPromptEnabled: promptEnabled)) {
+        _logVideoCompleted('action=exit promptDisabled');
+        unawaited(_handleBackButton());
         return;
       }
 

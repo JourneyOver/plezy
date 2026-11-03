@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Автовоспроизведение и пропуск",
     "autoPlayNextEpisode": "Автовоспроизведение следующего эпизода",
     "autoPlayNextEpisodeDescription": "Автоматически запускать следующий эпизод, когда заканчивается текущий",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Случайный порядок начинает с начала",
     "shuffleStartsFromBeginningDescription": "Начинать каждый эпизод с начала при случайном воспроизведении вместо продолжения",
     "playNextCountdown": "Обратный отсчёт перед следующим",

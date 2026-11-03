@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Автоматично пускане и прескачане",
     "autoPlayNextEpisode": "Автоматично пускане на следващия епизод",
     "autoPlayNextEpisodeDescription": "Пускай следващия епизод автоматично, когато текущият свърши",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Разбъркано възпроизвеждане отначало",
     "shuffleStartsFromBeginningDescription": "При разбъркано възпроизвеждане започвай всеки епизод отначало, вместо да продължаваш",
     "playNextCountdown": "Отброяване до следващия епизод",

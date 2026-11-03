@@ -851,6 +851,98 @@ void main() {
     });
   }
 
+  group('end of episode with the Play Next prompt hidden (#2537)', () {
+    testWidgets('a finished episode returns to the previous screen instead of prompting', (tester) async {
+      final client = _ReloadClient();
+      final fakePlayer = _ExitPlayer();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await SettingsService.instance.write(SettingsService.autoPlayNextEpisode, false);
+      await SettingsService.instance.write(SettingsService.showPlayNextPrompt, false);
+
+      try {
+        await withMockPlayerChannels(
+          methodChannelName: 'com.plezy/mpv_player',
+          eventChannelName: 'com.plezy/mpv_player/events',
+          testBody: () async {
+            final screen = await _pushExitScreen(tester, db: db, client: client, fakePlayer: fakePlayer);
+            final state = screen.key.currentState!;
+            state.debugCommitAdjacentEpisodesForTesting(
+              AdjacentEpisodes(
+                next: testMediaItem(id: 'promptless-next', serverId: 'srv-1', backend: MediaBackend.jellyfin),
+                nextStatus: QueueNavigationStatus.found,
+                previousStatus: QueueNavigationStatus.boundary,
+              ),
+            );
+            final opens = fakePlayer.openCalls;
+
+            fakePlayer.setPosition(fakePlayer.state.duration - const Duration(seconds: 2));
+            fakePlayer.emitPlaying(false);
+            fakePlayer.setCompleted(true);
+            state.debugCompleteVideoForTesting();
+
+            await pumpUntil(tester, () => screen.key.currentState == null);
+            expect(state.debugPlayNextPromptVisibleForTesting, isFalse);
+            expect(find.text('Browse'), findsOneWidget);
+            expect(fakePlayer.openCalls, opens, reason: 'the next episode must not start');
+            await tester.pump(const Duration(seconds: 20));
+            expect(fakePlayer.openCalls, opens, reason: 'nothing starts after the exit either');
+          },
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('auto-play still advances, without raising the prompt', (tester) async {
+      final client = _ReloadClient();
+      final fakePlayer = _ExitPlayer();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await SettingsService.instance.write(SettingsService.autoPlayNextEpisode, true);
+      await SettingsService.instance.write(SettingsService.showPlayNextPrompt, false);
+
+      try {
+        await withMockPlayerChannels(
+          methodChannelName: 'com.plezy/mpv_player',
+          eventChannelName: 'com.plezy/mpv_player/events',
+          testBody: () async {
+            final screen = await _pushExitScreen(tester, db: db, client: client, fakePlayer: fakePlayer);
+            final state = screen.key.currentState!;
+            state.debugCommitAdjacentEpisodesForTesting(
+              AdjacentEpisodes(
+                next: testMediaItem(id: 'promptless-advance', serverId: 'srv-1', backend: MediaBackend.jellyfin),
+                nextStatus: QueueNavigationStatus.found,
+                previousStatus: QueueNavigationStatus.boundary,
+              ),
+            );
+            final opens = fakePlayer.openCalls;
+
+            fakePlayer.setPosition(fakePlayer.state.duration - const Duration(seconds: 2));
+            fakePlayer.emitPlaying(false);
+            fakePlayer.setCompleted(true);
+            state.debugCompleteVideoForTesting();
+
+            // The in-place reload needs real-event-loop yields for its
+            // database work.
+            for (var i = 0; i < 400 && fakePlayer.openCalls == opens; i++) {
+              await tester.pump(const Duration(milliseconds: 50));
+              if (fakePlayer.openCalls == opens) {
+                await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 2)));
+              }
+            }
+            await tester.pump();
+            expect(fakePlayer.openCalls, opens + 1, reason: 'auto-play starts the next episode by itself');
+            expect(state.debugPlayNextPromptVisibleForTesting, isFalse);
+            expect(screen.key.currentState, isNotNull);
+          },
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
   group('Windows display-switch hold', () {
     testWidgets('the hold does not reach the Watch Together room', (tester) async {
       final client = _ReloadClient();

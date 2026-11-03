@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Automatisch afspelen en overslaan",
     "autoPlayNextEpisode": "Volgende aflevering automatisch afspelen",
     "autoPlayNextEpisodeDescription": "Start de volgende aflevering automatisch wanneer een aflevering eindigt",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Willekeurig afspelen begint vooraan",
     "shuffleStartsFromBeginningDescription": "Start elke aflevering bij willekeurig afspelen vanaf het begin in plaats van te hervatten",
     "playNextCountdown": "Aftellen voor volgende aflevering",

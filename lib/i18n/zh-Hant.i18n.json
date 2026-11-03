@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "自動播放與跳過",
     "autoPlayNextEpisode": "自動播放下一集",
     "autoPlayNextEpisodeDescription": "目前單集結束時自動播放下一集",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "隨機播放從頭開始",
     "shuffleStartsFromBeginningDescription": "隨機播放時每集從頭開始播放，而非繼續播放",
     "playNextCountdown": "下一集倒數計時",
