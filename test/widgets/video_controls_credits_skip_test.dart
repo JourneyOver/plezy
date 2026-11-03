@@ -71,6 +71,7 @@ void main() {
     WidgetTester tester, {
     required bool autoPlay,
     required bool prompt,
+    required String expectedLabel,
   }) async {
     await settings.write(SettingsService.autoPlayNextEpisode, autoPlay);
     await settings.write(SettingsService.showPlayNextPrompt, prompt);
@@ -132,6 +133,7 @@ void main() {
     player.emitPosition(const Duration(minutes: 41));
     await tester.pumpAndSettle();
     expect(find.byType(SkipMarkerButton), findsOneWidget);
+    expect(find.text(expectedLabel), findsOneWidget, reason: 'the pill must name what tapping it actually does');
 
     await tester.tap(find.byType(SkipMarkerButton));
     await tester.pumpAndSettle();
@@ -142,28 +144,28 @@ void main() {
   }
 
   testWidgets('auto-play on keeps the straight advance to the next episode', (tester) async {
-    final result = await tapSkipCredits(tester, autoPlay: true, prompt: true);
+    final result = await tapSkipCredits(tester, autoPlay: true, prompt: true, expectedLabel: 'Next Episode');
 
     expect(result.next, 1);
     expect(result.reachedEnd, 0);
   });
 
   testWidgets('auto-play on with the prompt hidden still advances', (tester) async {
-    final result = await tapSkipCredits(tester, autoPlay: true, prompt: false);
+    final result = await tapSkipCredits(tester, autoPlay: true, prompt: false, expectedLabel: 'Next Episode');
 
     expect(result.next, 1);
     expect(result.reachedEnd, 0);
   });
 
   testWidgets('auto-play off with the prompt on still advances', (tester) async {
-    final result = await tapSkipCredits(tester, autoPlay: false, prompt: true);
+    final result = await tapSkipCredits(tester, autoPlay: false, prompt: true, expectedLabel: 'Next Episode');
 
     expect(result.next, 1);
     expect(result.reachedEnd, 0);
   });
 
-  testWidgets('auto-play off with the prompt hidden hands the finish to the completion flow', (tester) async {
-    final result = await tapSkipCredits(tester, autoPlay: false, prompt: false);
+  testWidgets('auto-play off with the prompt hidden keeps the Skip Credits label and hands off', (tester) async {
+    final result = await tapSkipCredits(tester, autoPlay: false, prompt: false, expectedLabel: 'Skip Credits');
 
     expect(result.next, 0, reason: 'the next episode must not start');
     expect(result.reachedEnd, 1);
