@@ -129,10 +129,11 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
       }
 
       // No prompt and no auto-play: nothing is waiting for an answer, so the
-      // finished item leaves the player for the screen it came from (#2537).
-      if (completionReturnsToPreviousScreen(autoPlayEnabled: autoPlayEnabled, playNextPromptEnabled: promptEnabled)) {
+      // finished item leaves the player (#2537) for the configured
+      // destination.
+      if (completionLeavesPlayer(autoPlayEnabled: autoPlayEnabled, playNextPromptEnabled: promptEnabled)) {
         _logVideoCompleted('action=exit promptDisabled');
-        unawaited(_handleBackButton());
+        unawaited(_handleBackButton(navigateHome: _finishesAtHome));
         return;
       }
 
@@ -157,11 +158,17 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     } else if (navigationAction == CompletionNavigationAction.exit && !_episode.completionLatch.triggered) {
       _logVideoCompleted('action=exit');
       _episode.completionLatch.latch();
-      unawaited(_handleBackButton());
+      unawaited(_handleBackButton(navigateHome: _finishesAtHome));
     } else {
       _logVideoCompleted('action=${navigationAction.name} latched');
     }
   }
+
+  /// Whether a finished item returns to the app's Home shell instead of the
+  /// screen that opened the player (#2537). Only read where the completion
+  /// flow leaves the player.
+  bool get _finishesAtHome =>
+      SettingsService.instanceOrNull?.read(SettingsService.playbackEndDestination) == PlaybackEndDestination.home;
 
   /// The completion chain used to run silently; one line per accepted EOF
   /// names what the screen decided, for field diagnosis of items that never

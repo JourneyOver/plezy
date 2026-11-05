@@ -323,6 +323,18 @@ class PlaybackSettingsScreen extends StatelessWidget {
         title: t.settings.showPlayNextPrompt,
         subtitle: t.settings.showPlayNextPromptDescription,
       ),
+      // The item either has nothing after it (a movie, a show's last episode)
+      // or does not auto-advance; either way this is where playback lands.
+      SettingSelectionTile<PlaybackEndDestination>(
+        pref: SettingsService.playbackEndDestination,
+        icon: Symbols.home_rounded,
+        title: t.settings.playbackEndDestination,
+        subtitleBuilder: (destination) =>
+            '${_playbackEndDestinationLabel(destination)} · ${t.settings.playbackEndDestinationDescription}',
+        options: PlaybackEndDestination.values
+            .map((d) => DialogOption(value: d, title: _playbackEndDestinationLabel(d)))
+            .toList(),
+      ),
       SettingSwitchTile(
         pref: SettingsService.shuffleStartsFromBeginning,
         icon: Symbols.shuffle_rounded,
@@ -387,6 +399,11 @@ class PlaybackSettingsScreen extends StatelessWidget {
     SkipMarkerMode.off => t.settings.skipMarkerModeOff,
     SkipMarkerMode.button => t.settings.skipMarkerModeButton,
     SkipMarkerMode.auto => t.settings.skipMarkerModeAuto,
+  };
+
+  String _playbackEndDestinationLabel(PlaybackEndDestination destination) => switch (destination) {
+    PlaybackEndDestination.previousScreen => t.settings.playbackEndDestinationPreviousScreen,
+    PlaybackEndDestination.home => t.settings.playbackEndDestinationHome,
   };
 
   String _skipIntroModeDescription(SkipMarkerMode mode) => switch (mode) {

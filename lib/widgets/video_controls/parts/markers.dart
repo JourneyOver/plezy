@@ -102,13 +102,12 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
     }
   }
 
-  /// Whether Skip Credits on a marker that ends with the file returns the
-  /// viewer to the previous screen instead of starting the next episode
-  /// (#2537).
+  /// Whether Skip Credits on a marker that ends with the file leaves the
+  /// player instead of starting the next episode (#2537).
   ///
   /// Shared by the action and the button's label: a pill that leaves the
   /// player must not promise the next episode.
-  bool get _creditsSkipLeavesPlayer => completionReturnsToPreviousScreen(
+  bool get _creditsSkipLeavesPlayer => completionLeavesPlayer(
     autoPlayEnabled: _settings.read(SettingsService.autoPlayNextEpisode),
     playNextPromptEnabled: _settings.read(SettingsService.showPlayNextPrompt),
   );
