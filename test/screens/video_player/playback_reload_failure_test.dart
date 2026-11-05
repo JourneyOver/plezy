@@ -943,6 +943,115 @@ void main() {
     });
   });
 
+  group('end-of-item destination (#2537)', () {
+    for (final home in [false, true]) {
+      testWidgets(
+        'an item with nothing after it returns ${home ? 'to the Home shell' : 'to the page that opened the player'}',
+        (tester) async {
+          final client = _ReloadClient();
+          final fakePlayer = _ExitPlayer();
+          debugDefaultTargetPlatformOverride = TargetPlatform.android;
+          addTearDown(() => debugDefaultTargetPlatformOverride = null);
+          await SettingsService.instance.write(SettingsService.autoPlayNextEpisode, false);
+          await SettingsService.instance.write(SettingsService.showPlayNextPrompt, false);
+          await SettingsService.instance.write(
+            SettingsService.playbackEndDestination,
+            home ? PlaybackEndDestination.home : PlaybackEndDestination.previousScreen,
+          );
+
+          try {
+            await withMockPlayerChannels(
+              methodChannelName: 'com.plezy/mpv_player',
+              eventChannelName: 'com.plezy/mpv_player/events',
+              testBody: () async {
+                final screen = await _pushExitScreen(
+                  tester,
+                  db: db,
+                  client: client,
+                  fakePlayer: fakePlayer,
+                  withShowScreen: true,
+                );
+                final state = screen.key.currentState!;
+                // A standalone item: the completion flow's exit branch, which
+                // is the path a last episode and a movie take.
+                state.debugCommitAdjacentEpisodesForTesting(const AdjacentEpisodes.unavailable());
+                final opens = fakePlayer.openCalls;
+
+                fakePlayer.setPosition(fakePlayer.state.duration - const Duration(seconds: 2));
+                fakePlayer.emitPlaying(false);
+                fakePlayer.setCompleted(true);
+                state.debugCompleteVideoForTesting();
+
+                await pumpUntil(tester, () => screen.key.currentState == null);
+                await tester.pump(const Duration(seconds: 1));
+                await tester.pump();
+
+                expect(fakePlayer.openCalls, opens, reason: 'nothing starts after the exit');
+                expect(find.text('Browse'), home ? findsOneWidget : findsNothing);
+                expect(find.text('Show details'), home ? findsNothing : findsOneWidget);
+              },
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+    }
+
+    testWidgets('the Home destination is ignored while auto-play advances', (tester) async {
+      final client = _ReloadClient();
+      final fakePlayer = _ExitPlayer();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await SettingsService.instance.write(SettingsService.autoPlayNextEpisode, true);
+      await SettingsService.instance.write(SettingsService.showPlayNextPrompt, false);
+      await SettingsService.instance.write(SettingsService.playbackEndDestination, PlaybackEndDestination.home);
+
+      try {
+        await withMockPlayerChannels(
+          methodChannelName: 'com.plezy/mpv_player',
+          eventChannelName: 'com.plezy/mpv_player/events',
+          testBody: () async {
+            final screen = await _pushExitScreen(
+              tester,
+              db: db,
+              client: client,
+              fakePlayer: fakePlayer,
+              withShowScreen: true,
+            );
+            final state = screen.key.currentState!;
+            state.debugCommitAdjacentEpisodesForTesting(
+              AdjacentEpisodes(
+                next: testMediaItem(id: 'destination-next', serverId: 'srv-1', backend: MediaBackend.jellyfin),
+                nextStatus: QueueNavigationStatus.found,
+                previousStatus: QueueNavigationStatus.boundary,
+              ),
+            );
+            final opens = fakePlayer.openCalls;
+
+            fakePlayer.setPosition(fakePlayer.state.duration - const Duration(seconds: 2));
+            fakePlayer.emitPlaying(false);
+            fakePlayer.setCompleted(true);
+            state.debugCompleteVideoForTesting();
+
+            for (var i = 0; i < 400 && fakePlayer.openCalls == opens; i++) {
+              await tester.pump(const Duration(milliseconds: 50));
+              if (fakePlayer.openCalls == opens) {
+                await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 2)));
+              }
+            }
+            await tester.pump();
+
+            expect(fakePlayer.openCalls, opens + 1, reason: 'auto-play still starts the next episode');
+            expect(screen.key.currentState, isNotNull, reason: 'the player stays for the next item');
+          },
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
   group('Windows display-switch hold', () {
     testWidgets('the hold does not reach the Watch Together room', (tester) async {
       final client = _ReloadClient();
@@ -1391,6 +1500,7 @@ _pushExitScreen(
   required _ReloadClient client,
   required _ExitPlayer fakePlayer,
   WatchTogetherProvider? watchTogether,
+  bool withShowScreen = false,
 }) async {
   final multi = testMultiServer(clients: [client]);
   final offlineWatch = OfflineWatchSyncService(database: db, serverManager: multi.manager);
@@ -1427,6 +1537,16 @@ _pushExitScreen(
       ),
     ),
   );
+  if (withShowScreen) {
+    unawaited(
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Center(child: Text('Show details'))),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
   unawaited(
     VideoPlayerRoute(
       joinsWatchTogether: true,

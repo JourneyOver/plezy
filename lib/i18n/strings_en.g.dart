@@ -992,8 +992,20 @@ class Translations$settings$en {
 	/// en: 'Show Play Next Prompt'
 	String get showPlayNextPrompt => 'Show Play Next Prompt';
 
-	/// en: 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead'
-	String get showPlayNextPromptDescription => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead';
+	/// en: 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback leaves the player instead'
+	String get showPlayNextPromptDescription => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback leaves the player instead';
+
+	/// en: 'When Playback Ends'
+	String get playbackEndDestination => 'When Playback Ends';
+
+	/// en: 'Where to go when playback ends without starting something else'
+	String get playbackEndDestinationDescription => 'Where to go when playback ends without starting something else';
+
+	/// en: 'Previous Screen'
+	String get playbackEndDestinationPreviousScreen => 'Previous Screen';
+
+	/// en: 'Home Screen'
+	String get playbackEndDestinationHome => 'Home Screen';
 
 	/// en: 'Shuffle Starts at Beginning'
 	String get shuffleStartsFromBeginning => 'Shuffle Starts at Beginning';
@@ -8491,7 +8503,11 @@ extension on Translations {
 			'settings.autoPlayNextEpisode' => 'Auto-Play Next Episode',
 			'settings.autoPlayNextEpisodeDescription' => 'Start the next episode automatically when one ends',
 			'settings.showPlayNextPrompt' => 'Show Play Next Prompt',
-			'settings.showPlayNextPromptDescription' => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead',
+			'settings.showPlayNextPromptDescription' => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback leaves the player instead',
+			'settings.playbackEndDestination' => 'When Playback Ends',
+			'settings.playbackEndDestinationDescription' => 'Where to go when playback ends without starting something else',
+			'settings.playbackEndDestinationPreviousScreen' => 'Previous Screen',
+			'settings.playbackEndDestinationHome' => 'Home Screen',
 			'settings.shuffleStartsFromBeginning' => 'Shuffle Starts at Beginning',
 			'settings.shuffleStartsFromBeginningDescription' => 'Start each episode at the beginning when shuffling instead of resuming',
 			'settings.playNextCountdown' => 'Play Next Countdown',
@@ -8673,12 +8689,12 @@ extension on Translations {
 			'themeEditor.startFromDescription' => 'Copy all colors from another theme',
 			'themeEditor.colors' => 'Colors',
 			'themeEditor.preview' => 'Preview',
+			_ => null,
+		} ?? switch (path) {
 			'themeEditor.slots.bg' => 'Background',
 			'themeEditor.slots.surface' => 'Surface',
 			'themeEditor.slots.outline' => 'Outline',
 			'themeEditor.slots.text' => 'Text',
-			_ => null,
-		} ?? switch (path) {
 			'themeEditor.slots.textMuted' => 'Secondary text',
 			'themeEditor.slots.accent' => 'Accent',
 			'themeEditor.opacity' => 'Opacity',
@@ -9187,12 +9203,12 @@ extension on Translations {
 			'profiles.sourceProfileMissingParentAccount' => 'Source profile is missing its parent account.',
 			'profiles.failedToLoadHomeUsers' => 'Could not load your Plex Home users. Check your connection and try again.',
 			'profiles.failedToVerifyPin' => 'Failed to verify PIN.',
+			_ => null,
+		} ?? switch (path) {
 			'profiles.newProfile' => 'New profile',
 			'profiles.profileNameHint' => 'e.g. Guests, Kids, Family Room',
 			'profiles.pinProtectionOptional' => 'PIN protection (optional)',
 			'profiles.pinExplain' => '4-digit PIN required to switch profiles.',
-			_ => null,
-		} ?? switch (path) {
 			'profiles.continueButton' => 'Continue',
 			'profiles.pinsDontMatch' => 'PINs don\'t match',
 			'profiles.tokenIdentityMismatch' => 'The Plex profile token resolved to an unexpected server',
@@ -9701,12 +9717,12 @@ extension on Translations {
 			'liveTv.recordingsCount' => ({required Object count}) => '${count} scheduled',
 			'liveTv.editRule' => 'Edit rule',
 			'liveTv.editRuleAction' => 'Edit',
+			_ => null,
+		} ?? switch (path) {
 			'liveTv.recordingRuleUpdated' => 'Recording rule updated',
 			'liveTv.guideReloadRequested' => 'Guide refresh requested',
 			'liveTv.guideReloadFailed' => 'Couldn\'t refresh the guide',
 			'liveTv.rulesProcessRequested' => 'Rule re-evaluation requested',
-			_ => null,
-		} ?? switch (path) {
 			'liveTv.rulesProcessFailed' => 'Couldn\'t re-evaluate recording rules',
 			'liveTv.recordShow' => 'Record show',
 			'liveTv.recordSettings.startEarly' => 'Start early (seconds)',
@@ -10215,12 +10231,12 @@ extension on Translations {
 			'performanceOverlay.minLuma' => 'Min Luma',
 			'performanceOverlay.maxCll' => 'MaxCLL',
 			'performanceOverlay.maxFall' => 'MaxFALL',
+			_ => null,
+		} ?? switch (path) {
 			'performanceOverlay.cacheUsed' => 'Cache Used',
 			'performanceOverlay.cacheLimit' => 'Cache Limit',
 			'performanceOverlay.speed' => 'Speed',
 			'performanceOverlay.player' => 'Player',
-			_ => null,
-		} ?? switch (path) {
 			'performanceOverlay.playMethod' => 'Play Method',
 			'performanceOverlay.memory' => 'Memory',
 			'performanceOverlay.uiFps' => 'UI FPS',
