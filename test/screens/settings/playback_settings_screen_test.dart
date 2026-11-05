@@ -97,6 +97,34 @@ void main() {
     expect(settings.prefs.getBool(SettingsService.showPlayNextPrompt.key), isFalse);
   });
 
+  testWidgets('changes where playback lands when it ends', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1400);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(MaterialApp(theme: monoTheme(MonoPalette.dark), home: const PlaybackSettingsScreen()));
+    await tester.pumpAndSettle();
+
+    final settings = SettingsService.instance;
+    final title = find.text('When Playback Ends');
+    await tester.scrollUntilVisible(title, 500, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(title);
+    await tester.pumpAndSettle();
+
+    final tile = find.widgetWithText(ListTile, 'When Playback Ends');
+    expect(find.descendant(of: tile, matching: find.textContaining('Previous Screen')), findsOneWidget);
+
+    await tester.tap(title);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Home Screen'));
+    await tester.pumpAndSettle();
+
+    expect(settings.read(SettingsService.playbackEndDestination), PlaybackEndDestination.home);
+    expect(settings.prefs.getString(SettingsService.playbackEndDestination.key), 'home');
+    expect(find.descendant(of: tile, matching: find.textContaining('Home Screen')), findsOneWidget);
+  });
+
   testWidgets('changes the play next countdown and labels zero as immediate', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1000, 1400);

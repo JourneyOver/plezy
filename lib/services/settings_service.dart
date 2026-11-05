@@ -143,6 +143,19 @@ enum SkipMarkerMode {
   auto,
 }
 
+/// Where the player goes when a finished item does not advance (#2537).
+///
+/// Only consulted in that state — auto-play and the Play Next prompt own every
+/// other outcome — and it answers the same question for episodes and movies.
+enum PlaybackEndDestination {
+  /// The screen that opened the player: the show, season, episode or movie
+  /// page.
+  previousScreen,
+
+  /// The app's first route, the Home shell.
+  home,
+}
+
 enum SubAssOverride { no, yes, scale, force, strip }
 
 /// Resolution ASS/image subtitles are rasterized at.
@@ -807,9 +820,17 @@ class SettingsService extends BaseSharedPreferencesService {
 
   /// Show the end-of-episode Play Next prompt (#2537). Off means no prompt is
   /// ever raised: auto-play advances straight into the next item, and with
-  /// [autoPlayNextEpisode] off the finished item leaves the player for the
-  /// screen it came from instead of waiting for an answer.
+  /// [autoPlayNextEpisode] off the finished item leaves the player for
+  /// [playbackEndDestination] instead of waiting for an answer.
   static const showPlayNextPrompt = BoolPref('show_play_next_prompt', defaultValue: true);
+
+  /// Where a finished item goes when nothing else starts (#2537): it has no
+  /// next item, or auto-play is off with the Play Next prompt hidden.
+  static const playbackEndDestination = EnumPref<PlaybackEndDestination>(
+    'playback_end_destination',
+    values: PlaybackEndDestination.values,
+    defaultValue: PlaybackEndDestination.previousScreen,
+  );
 
   /// Shuffled video queues start every episode at 0:00 instead of resuming
   /// from the server-side view offset (#2303). Off preserves resume behavior.
@@ -1534,6 +1555,7 @@ class SettingsService extends BaseSharedPreferencesService {
     resumeMusicOnLaunch,
     autoPlayNextEpisode,
     showPlayNextPrompt,
+    playbackEndDestination,
     playNextCountdown,
     shuffleStartsFromBeginning,
     gestureBrightnessSwipe,

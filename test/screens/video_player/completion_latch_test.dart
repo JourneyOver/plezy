@@ -114,21 +114,21 @@ void main() {
     });
   });
 
-  group('completionReturnsToPreviousScreen (#2537)', () {
+  group('completionLeavesPlayer (#2537)', () {
     test('a finished episode leaves the player when auto-play and the prompt are both off', () {
-      expect(completionReturnsToPreviousScreen(autoPlayEnabled: false, playNextPromptEnabled: false), isTrue);
+      expect(completionLeavesPlayer(autoPlayEnabled: false, playNextPromptEnabled: false), isTrue);
     });
 
     test('auto-play advances without the prompt instead of leaving', () {
-      expect(completionReturnsToPreviousScreen(autoPlayEnabled: true, playNextPromptEnabled: false), isFalse);
+      expect(completionLeavesPlayer(autoPlayEnabled: true, playNextPromptEnabled: false), isFalse);
     });
 
     test('the prompt still asks when auto-play is off', () {
-      expect(completionReturnsToPreviousScreen(autoPlayEnabled: false, playNextPromptEnabled: true), isFalse);
+      expect(completionLeavesPlayer(autoPlayEnabled: false, playNextPromptEnabled: true), isFalse);
     });
 
     test('auto-play with the prompt keeps the countdown overlay', () {
-      expect(completionReturnsToPreviousScreen(autoPlayEnabled: true, playNextPromptEnabled: true), isFalse);
+      expect(completionLeavesPlayer(autoPlayEnabled: true, playNextPromptEnabled: true), isFalse);
     });
   });
 
