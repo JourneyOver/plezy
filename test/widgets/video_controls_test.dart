@@ -1546,6 +1546,81 @@ void main() {
       expect((customPaint.painter! as BufferRangePainter).chapters, isEmpty);
     });
 
+    testWidgets('hover tooltip names the chapter under the cursor', (tester) async {
+      LocaleSettings.setLocaleSync(AppLocale.en);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                child: TimelineSlider(
+                  position: const Duration(minutes: 1),
+                  duration: const Duration(minutes: 10),
+                  chapters: [
+                    MediaChapter(id: 1, startTimeOffset: 0, endTimeOffset: 300000, title: 'Opening'),
+                    MediaChapter(id: 2, startTimeOffset: 300000, endTimeOffset: 600000, title: 'The Heist'),
+                  ],
+                  chaptersLoaded: true,
+                  onSeek: (_) {},
+                  onSeekEnd: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final gesture = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+
+      final rect = tester.getRect(find.byType(TimelineSlider));
+      await gesture.moveTo(Offset(rect.left + rect.width * 0.75, rect.center.dy));
+      await tester.pump();
+
+      expect(find.text('The Heist'), findsOneWidget);
+      expect(find.text('7:30'), findsOneWidget);
+
+      // Crossing a boundary inside the same pixel bucket still swaps the name.
+      await gesture.moveTo(Offset(rect.left + rect.width * 0.25, rect.center.dy));
+      await tester.pump();
+
+      expect(find.text('Opening'), findsOneWidget);
+      expect(find.text('The Heist'), findsNothing);
+    });
+
+    testWidgets('hover tooltip omits unnamed chapters', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                child: TimelineSlider(
+                  position: const Duration(minutes: 1),
+                  duration: const Duration(minutes: 10),
+                  chapters: [MediaChapter(id: 1, startTimeOffset: 0, endTimeOffset: 600000)],
+                  chaptersLoaded: true,
+                  onSeek: (_) {},
+                  onSeekEnd: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final gesture = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(find.byType(TimelineSlider)));
+      await tester.pump();
+
+      expect(find.text('5:00'), findsOneWidget);
+      expect(find.textContaining('Chapter'), findsNothing);
+    });
+
     testWidgets('clamps stale position beyond duration before building slider', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
