@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import '../../../media/media_source_info.dart';
@@ -89,6 +91,23 @@ class _TimelineSliderState extends State<TimelineSlider> {
   static const _sliderPadding = 0.0;
 
   static const _thumbWidth = 160.0;
+
+  /// Longest a chapter title may get in the hover tooltip before it ellipsizes.
+  static const _chapterLabelMaxWidth = 240.0;
+
+  static const _timeTextStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 12,
+    height: 1.0,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  static const _chapterTextStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 12,
+    height: 1.2,
+    fontWeight: FontWeight.w600,
+  );
 
   @override
   void dispose() {
@@ -236,55 +255,109 @@ class _TimelineSliderState extends State<TimelineSlider> {
   Widget _buildTooltip(double sliderWidth, double pixelX, Duration time, {ScrubFrame? frame}) {
     final resolvedFrame = frame ?? widget.thumbnailDataBuilder?.call(time);
     final hasThumbnail = resolvedFrame != null;
+    final chapterTitle = _chapterTitleAt(time);
+    final timeText = formatDurationTimestamp(time);
 
-    final tooltipWidth = hasThumbnail ? _thumbWidth : 64.0;
-    final tooltipHeight = hasThumbnail ? _thumbWidth / resolvedFrame.aspectRatio : 26.0;
-    final tooltipTop = -(tooltipHeight + 2.0);
+    final timeLabel = _labelBox(Text(timeText, style: _timeTextStyle));
+    final chapterLabel = chapterTitle == null
+        ? null
+        : ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _chapterLabelMaxWidth),
+            child: Text(
+              chapterTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: _chapterTextStyle,
+            ),
+          );
+
+    final double tooltipWidth;
+    final double tooltipHeight;
+    final Widget child;
+
+    if (hasThumbnail) {
+      tooltipWidth = _thumbWidth;
+      tooltipHeight = _thumbWidth / resolvedFrame.aspectRatio;
+      child = Container(
+        width: tooltipWidth,
+        height: tooltipHeight,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: const BorderRadius.all(Radius.circular(6)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 1)],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _ScrubFrameView(frame: resolvedFrame),
+            if (chapterLabel != null)
+              Positioned(top: 4, left: 4, right: 4, child: Center(child: _labelBox(chapterLabel, verticalPadding: 3))),
+            Positioned(bottom: 4, left: 0, right: 0, child: Center(child: timeLabel)),
+          ],
+        ),
+      );
+    } else if (chapterLabel != null) {
+      final titlePainter = _textPainter(chapterTitle!, _chapterTextStyle);
+      final timePainter = _textPainter(timeText, _timeTextStyle);
+      tooltipWidth = math.max(titlePainter.width, timePainter.width) + 12.0;
+      tooltipHeight = titlePainter.height + 2.0 + timePainter.height + 8.0;
+      child = _labelBox(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            chapterLabel,
+            const SizedBox(height: 2),
+            Text(timeText, style: _timeTextStyle),
+          ],
+        ),
+      );
+    } else {
+      tooltipWidth = 64.0;
+      tooltipHeight = 26.0;
+      child = timeLabel;
+    }
 
     // Center tooltip on cursor, clamped so it stays within the slider bounds
     final left = (pixelX - tooltipWidth / 2).clamp(0.0, (sliderWidth - tooltipWidth).clamp(0.0, double.infinity));
 
-    final timeLabel = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    return Positioned(
+      left: left,
+      top: -(tooltipHeight + 2.0),
+      child: IgnorePointer(child: child),
+    );
+  }
+
+  /// The chapter covering [time], or null when chapters are unavailable or
+  /// unnamed. Titles only: generic fallbacks ("Chapter 4") add nothing to a
+  /// hover preview.
+  String? _chapterTitleAt(Duration time) {
+    if (!widget.chaptersLoaded || widget.chapters.isEmpty) return null;
+    final index = MediaChapter.indexAtPosition(time, widget.chapters);
+    if (index == null) return null;
+    final title = widget.chapters[index].title?.trim();
+    return title == null || title.isEmpty ? null : title;
+  }
+
+  TextPainter _textPainter(String text, TextStyle style) {
+    return TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 1,
+      ellipsis: '…',
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: _chapterLabelMaxWidth);
+  }
+
+  static Widget _labelBox(Widget child, {double verticalPadding = 4}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: verticalPadding),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.6),
         borderRadius: const BorderRadius.all(Radius.circular(4)),
       ),
-      child: Text(
-        formatDurationTimestamp(time),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          height: 1.0,
-          fontFeatures: [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
-
-    return Positioned(
-      left: left,
-      top: tooltipTop,
-      child: IgnorePointer(
-        child: hasThumbnail
-            ? Container(
-                width: tooltipWidth,
-                height: tooltipHeight,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: const BorderRadius.all(Radius.circular(6)),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 1)],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _ScrubFrameView(frame: resolvedFrame),
-                    Positioned(bottom: 4, left: 0, right: 0, child: Center(child: timeLabel)),
-                  ],
-                ),
-              )
-            : timeLabel,
-      ),
+      child: child,
     );
   }
 
