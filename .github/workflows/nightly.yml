@@ -1,15 +1,16 @@
-# Fork-only workflow: merges the newest upstream (edde746/plezy) main into this
-# fork's main inside the runner, builds Windows (x64), and publishes the result
-# as the rolling "nightly" pre-release of this fork.
+# Nightly: merges the newest upstream (edde746/plezy) main into this fork's
+# main inside the runner, builds Windows (x64) and Android (split APKs), and
+# publishes the result as the rolling "nightly" pre-release of this fork.
 #
 # The merge is never pushed back: GITHUB_TOKEN may not write commits that touch
 # .github/workflows, and upstream edits those regularly. Use GitHub's
 # "Sync fork" button (or `git pull upstream main`) to update the branch itself.
-name: Fork nightly
+name: Nightly build
 
 on:
   schedule:
     - cron: "17 2 * * *"
+      timezone: 'America/Chicago'
   push:
     branches:
       - main
@@ -23,7 +24,7 @@ on:
         type: boolean
 
 concurrency:
-  group: fork-nightly
+  group: nightly
   cancel-in-progress: true
 
 env:
@@ -139,13 +140,112 @@ jobs:
             plezy-windows-installer.exe
             plezy-windows-x64-portable.7z
 
-  # Publishes the build when it succeeded. A failed build gets a different
-  # stamp, so the next scheduled run rebuilds instead of skipping.
+  build-android:
+    needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.fork_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge upstream main
+        shell: bash
+        run: |
+          git fetch --no-tags "$UPSTREAM_REPO" main
+          git -c user.name=fork-ci -c user.email=fork-ci@localhost merge --no-edit ${{ needs.prepare.outputs.upstream_sha }}
+
+      - name: Setup Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: ${{ needs.prepare.outputs.flutter_version }}
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-nightly-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-nightly-gradle-
+
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile --no-example
+
+      # Android refuses to install a differently signed APK over an existing
+      # one, so every nightly must carry the same key. This fork's own keystore
+      # lives in the ANDROID_* repository secrets (the names upstream build.yml
+      # already uses) rather than a generated debug key, which AGP would recreate
+      # differently on every runner.
+      - name: Configure Android signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          # A debug-signed fallback would ship an APK the next nightly cannot
+          # install over, so a missing secret stops the build instead.
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::$name is not set. Add the ANDROID_* repository secrets; see .github/workflows/nightly.yml."
+              exit 1
+            fi
+          done
+          # build.gradle.kts reads key.properties from the app module and resolves
+          # storeFile relative to it, so the keystore lands beside the app too.
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties << EOF
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+
+      # Split per ABI like the official APK build, so a nightly download is the
+      # same shape as an upstream one.
+      - name: Build APKs
+        run: flutter build apk --release --split-per-abi --dart-define=GIT_COMMIT=${{ needs.prepare.outputs.fork_sha }}
+
+      - name: Clean up signing material
+        if: always()
+        run: rm -f android/app/upload-keystore.jks android/key.properties
+
+      - name: Package APKs
+        run: |
+          tar -czf plezy-android-arm64-v8a.tar.gz -C build/app/outputs/flutter-apk app-arm64-v8a-release.apk --transform 's/app-arm64-v8a-release.apk/plezy.apk/'
+          tar -czf plezy-android-armeabi-v7a.tar.gz -C build/app/outputs/flutter-apk app-armeabi-v7a-release.apk --transform 's/app-armeabi-v7a-release.apk/plezy.apk/'
+          tar -czf plezy-android-x86_64.tar.gz -C build/app/outputs/flutter-apk app-x86_64-release.apk --transform 's/app-x86_64-release.apk/plezy.apk/'
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android
+          path: plezy-android-*.tar.gz
+
+  # Publishes the builds when they succeeded. A failed build gets a different
+  # stamp, so the next scheduled run rebuilds instead of skipping. Both
+  # platforms publish together: the stamp is per commit pair, so a release
+  # carrying only one of them would stop the other from ever catching up.
   release:
-    needs: [prepare, build-windows]
+    needs: [prepare, build-windows, build-android]
     if: >-
       !cancelled() && needs.prepare.outputs.skip != 'true' &&
-      needs.build-windows.result == 'success'
+      needs.build-windows.result == 'success' &&
+      needs.build-android.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
