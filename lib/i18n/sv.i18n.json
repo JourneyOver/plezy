@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Autouppspelning och hoppa över",
     "autoPlayNextEpisode": "Spela nästa avsnitt automatiskt",
     "autoPlayNextEpisodeDescription": "Starta nästa avsnitt automatiskt när det aktuella avsnittet slutar",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Blanda från början",
     "shuffleStartsFromBeginningDescription": "Starta varje avsnitt från början vid blandad uppspelning i stället för att återuppta",
     "playNextCountdown": "Nedräkning för nästa avsnitt",

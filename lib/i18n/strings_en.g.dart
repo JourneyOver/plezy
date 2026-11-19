@@ -989,6 +989,12 @@ class Translations$settings$en {
 	/// en: 'Start the next episode automatically when one ends'
 	String get autoPlayNextEpisodeDescription => 'Start the next episode automatically when one ends';
 
+	/// en: 'Show Play Next Prompt'
+	String get showPlayNextPrompt => 'Show Play Next Prompt';
+
+	/// en: 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead'
+	String get showPlayNextPromptDescription => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead';
+
 	/// en: 'Shuffle Starts at Beginning'
 	String get shuffleStartsFromBeginning => 'Shuffle Starts at Beginning';
 
@@ -8447,6 +8453,8 @@ extension on Translations {
 			'settings.autoPlayAndSkip' => 'Auto-Play & Skip',
 			'settings.autoPlayNextEpisode' => 'Auto-Play Next Episode',
 			'settings.autoPlayNextEpisodeDescription' => 'Start the next episode automatically when one ends',
+			'settings.showPlayNextPrompt' => 'Show Play Next Prompt',
+			'settings.showPlayNextPromptDescription' => 'Ask before advancing when an episode ends. With Auto-Play Next Episode off, playback returns to the previous screen instead',
 			'settings.shuffleStartsFromBeginning' => 'Shuffle Starts at Beginning',
 			'settings.shuffleStartsFromBeginningDescription' => 'Start each episode at the beginning when shuffling instead of resuming',
 			'settings.playNextCountdown' => 'Play Next Countdown',

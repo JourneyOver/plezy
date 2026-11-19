@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Otomatik Oynat ve Atla",
     "autoPlayNextEpisode": "Sonraki Bölümü Otomatik Oynat",
     "autoPlayNextEpisodeDescription": "Bir bölüm bittiğinde sonraki bölümü otomatik başlat",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Karışık Oynatma Baştan Başlar",
     "shuffleStartsFromBeginningDescription": "Karışık oynatmada her bölümü devam ettirmek yerine baştan başlat",
     "playNextCountdown": "Sonraki Bölüm Geri Sayımı",

@@ -29,6 +29,15 @@ CompletionNavigationAction completionNavigationAction({
   return CompletionNavigationAction.exit;
 }
 
+/// Whether a finished item leaves the player instead of offering the next one.
+///
+/// A hidden Play Next prompt has nobody to wait for, so an item that does not
+/// auto-advance goes back to the screen it was opened from (#2537). The same
+/// answer decides where a credits marker that runs to the end of the file
+/// hands off: off means "leave", not "start the next episode".
+bool completionReturnsToPreviousScreen({required bool autoPlayEnabled, required bool playNextPromptEnabled}) =>
+    !autoPlayEnabled && !playNextPromptEnabled;
+
 /// How many times an auto-play countdown may re-fire a transiently failed
 /// EOF advance before the Play Next prompt goes manual-only (#1867). Retries
 /// are spaced by the countdown plus the failed attempt itself (connect

@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Avtomatik ijro va oʻtkazish",
     "autoPlayNextEpisode": "Keyingi qismni avtomatik ijro etish",
     "autoPlayNextEpisodeDescription": "Qism tugagach, keyingisini avtomatik ijro etish",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Aralashtirish boshidan boshlanadi",
     "shuffleStartsFromBeginningDescription": "Aralashtirganda har bir qismni davom ettirish oʻrniga boshidan boshlash",
     "playNextCountdown": "Keyingi qism sanogʻi",

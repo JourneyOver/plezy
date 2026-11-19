@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Autospill og hopp",
     "autoPlayNextEpisode": "Spill neste episode automatisk",
     "autoPlayNextEpisodeDescription": "Start neste episode automatisk når en episode er ferdig",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Tilfeldig avspilling starter fra begynnelsen",
     "shuffleStartsFromBeginningDescription": "Start hver episode fra begynnelsen ved tilfeldig avspilling i stedet for å fortsette",
     "playNextCountdown": "Nedtelling for neste episode",

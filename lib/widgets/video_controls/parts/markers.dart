@@ -113,7 +113,15 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
 
     final handsOffToCompletion = marker.isCredits && isAtEnd;
     if (handsOffToCompletion) {
-      if (!skipAutoPlayCountdown && widget.onNext != null) {
+      // Skip Credits used to start the next episode outright. When the
+      // end-of-episode prompt is hidden and auto-play is off, the viewer asked
+      // to be returned where they came from, so hand the finish to the
+      // completion flow instead of advancing here (#2537).
+      final returnsToPreviousScreen = completionReturnsToPreviousScreen(
+        autoPlayEnabled: _settings.read(SettingsService.autoPlayNextEpisode),
+        playNextPromptEnabled: _settings.read(SettingsService.showPlayNextPrompt),
+      );
+      if (!skipAutoPlayCountdown && !returnsToPreviousScreen && widget.onNext != null) {
         _abandoningBurst(widget.onNext)!.call();
       } else {
         // Seeking to EOF is unreliable due to position stream throttling,

@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Autoafspilning og spring",
     "autoPlayNextEpisode": "Autoafspil næste afsnit",
     "autoPlayNextEpisodeDescription": "Start automatisk næste afsnit, når et afsnit slutter",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "Blandet afspilning starter forfra",
     "shuffleStartsFromBeginningDescription": "Start hvert afsnit forfra ved blandet afspilning i stedet for at genoptage",
     "playNextCountdown": "Nedtælling til næste afsnit",

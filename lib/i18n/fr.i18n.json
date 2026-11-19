@@ -347,6 +347,8 @@
     "autoPlayAndSkip": "Lecture automatique et saut",
     "autoPlayNextEpisode": "Lire automatiquement l'épisode suivant",
     "autoPlayNextEpisodeDescription": "Lancer automatiquement l'épisode suivant lorsqu'un épisode se termine",
+    "showPlayNextPrompt": "",
+    "showPlayNextPromptDescription": "",
     "shuffleStartsFromBeginning": "La lecture aléatoire commence au début",
     "shuffleStartsFromBeginningDescription": "Lire chaque épisode depuis le début en lecture aléatoire au lieu de le reprendre",
     "playNextCountdown": "Compte à rebours avant l'épisode suivant",
